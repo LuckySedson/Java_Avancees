@@ -14,6 +14,7 @@ import javafx.scene.layout.*;
 import java.util.List;
 
 public class MouvementsView {
+
     private final ApiService api = new ApiService();
 
     private final TableView<BonEntree> tableEntree = new TableView<>();
@@ -24,88 +25,71 @@ public class MouvementsView {
     private final TextField tfNumProduit = new TextField();
 
     public VBox getView() {
-        // ── Barre de recherche ──
-        tfNumProduit.setPromptText("Entrez le N° Produit...");
-        tfNumProduit.setPrefWidth(250);
-        Button btnRechercher = new Button("🔍 Voir les mouvements");
-        btnRechercher.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
 
-        HBox searchBar = new HBox(10, new Label("N° Produit :"), tfNumProduit, btnRechercher);
+        // ── Barre search ──
+        tfNumProduit.setPromptText("Filtrer par N° Produit...");
+        tfNumProduit.setPrefWidth(250);
+        Button btnTous = new Button("🔄 Tous");
+        btnTous.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
+
+        HBox searchBar = new HBox(10,
+                new Label("Filtrer :"), tfNumProduit, btnTous);
         searchBar.setPadding(new Insets(10));
 
-        // ── Table Entrées ──
+        // ── Colonnes Entrées ──
         TableColumn<BonEntree, String>  colNumE  = new TableColumn<>("N° Bon");
+        TableColumn<BonEntree, String>  colProdE = new TableColumn<>("N° Produit");
         TableColumn<BonEntree, Integer> colQteE  = new TableColumn<>("Qté Entrée");
         TableColumn<BonEntree, String>  colDateE = new TableColumn<>("Date");
 
         colNumE.setCellValueFactory(new PropertyValueFactory<>("numBonEntree"));
+        colProdE.setCellValueFactory(new PropertyValueFactory<>("numProduit"));
         colQteE.setCellValueFactory(new PropertyValueFactory<>("qteEntree"));
         colDateE.setCellValueFactory(new PropertyValueFactory<>("dateEntree"));
 
         colNumE.setPrefWidth(150);
+        colProdE.setPrefWidth(130);
         colQteE.setPrefWidth(120);
         colDateE.setPrefWidth(130);
 
-        tableEntree.getColumns().addAll(colNumE, colQteE, colDateE);
+        tableEntree.getColumns().addAll(colNumE, colProdE, colQteE, colDateE);
         tableEntree.setItems(dataEntree);
         tableEntree.setPrefHeight(200);
 
-        // ── Table Sorties ──
+        // ── Colonnes Sorties ──
         TableColumn<BonSortie, String>  colNumS  = new TableColumn<>("N° Bon");
+        TableColumn<BonSortie, String>  colProdS = new TableColumn<>("N° Produit");
         TableColumn<BonSortie, Integer> colQteS  = new TableColumn<>("Qté Sortie");
         TableColumn<BonSortie, String>  colDateS = new TableColumn<>("Date");
 
         colNumS.setCellValueFactory(new PropertyValueFactory<>("numBonSortie"));
+        colProdS.setCellValueFactory(new PropertyValueFactory<>("numProduit"));
         colQteS.setCellValueFactory(new PropertyValueFactory<>("qteSortie"));
         colDateS.setCellValueFactory(new PropertyValueFactory<>("dateSortie"));
 
         colNumS.setPrefWidth(150);
+        colProdS.setPrefWidth(130);
         colQteS.setPrefWidth(120);
         colDateS.setPrefWidth(130);
 
-        tableSortie.getColumns().addAll(colNumS, colQteS, colDateS);
+        tableSortie.getColumns().addAll(colNumS, colProdS, colQteS, colDateS);
         tableSortie.setItems(dataSortie);
         tableSortie.setPrefHeight(200);
 
-        // ── Action ──
-        btnRechercher.setOnAction(e -> {
-            String numProd = tfNumProduit.getText().trim();
-            if (numProd.isEmpty()) {
-                Alert a = new Alert(Alert.AlertType.WARNING);
-                a.setTitle("Attention");
-                a.setContentText("Saisis un N° de produit.");
-                a.showAndWait();
-                return;
+        tfNumProduit.textProperty().addListener((obs, oldVal, newVal) -> {
+            String keyword = newVal.trim();
+            if (keyword.isEmpty()) {
+                chargerTous();
+            } else {
+                filtrerParProduit(keyword);
             }
-
-            // Charger les entrées
-            Task<List<BonEntree>> taskEntree = new Task<>() {
-                @Override protected List<BonEntree> call() throws Exception {
-                    return api.getEntreesByProduit(numProd);
-                }
-            };
-            taskEntree.setOnSucceeded(ev -> dataEntree.setAll(taskEntree.getValue()));
-            taskEntree.setOnFailed(ev -> {
-                taskEntree.getException().printStackTrace();
-                showAlert("Erreur", "Impossible de charger les entrées.");
-            });
-            new Thread(taskEntree).start();
-
-            // Charger les sorties
-            Task<List<BonSortie>> taskSortie = new Task<>() {
-                @Override protected List<BonSortie> call() throws Exception {
-                    return api.getSortiesByProduit(numProd);
-                }
-            };
-            taskSortie.setOnSucceeded(ev -> dataSortie.setAll(taskSortie.getValue()));
-            taskSortie.setOnFailed(ev -> {
-                taskSortie.getException().printStackTrace();
-                showAlert("Erreur", "Impossible de charger les sorties.");
-            });
-            new Thread(taskSortie).start();
         });
 
-        // ── Layout ──
+        btnTous.setOnAction(e -> {
+            tfNumProduit.clear();
+            chargerTous();
+        });
+
         VBox layout = new VBox(10,
                 searchBar,
                 new Label("📥 Bons d'Entrée :"),
@@ -114,7 +98,50 @@ public class MouvementsView {
                 tableSortie
         );
         layout.setPadding(new Insets(15));
+
+        chargerTous();
         return layout;
+    }
+
+    // Charge all move
+    private void chargerTous() {
+        Task<List<BonEntree>> taskE = new Task<>() {
+            @Override protected List<BonEntree> call() throws Exception {
+                return api.getAllBonEntrees();
+            }
+        };
+        taskE.setOnSucceeded(e -> dataEntree.setAll(taskE.getValue()));
+        taskE.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les entrées."));
+        new Thread(taskE).start();
+
+        Task<List<BonSortie>> taskS = new Task<>() {
+            @Override protected List<BonSortie> call() throws Exception {
+                return api.getAllBonSorties();
+            }
+        };
+        taskS.setOnSucceeded(e -> dataSortie.setAll(taskS.getValue()));
+        taskS.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les sorties."));
+        new Thread(taskS).start();
+    }
+
+    private void filtrerParProduit(String numProduit) {
+        Task<List<BonEntree>> taskE = new Task<>() {
+            @Override protected List<BonEntree> call() throws Exception {
+                return api.getEntreesByProduit(numProduit);
+            }
+        };
+        taskE.setOnSucceeded(e -> dataEntree.setAll(taskE.getValue()));
+        taskE.setOnFailed(e -> dataEntree.clear());
+        new Thread(taskE).start();
+
+        Task<List<BonSortie>> taskS = new Task<>() {
+            @Override protected List<BonSortie> call() throws Exception {
+                return api.getSortiesByProduit(numProduit);
+            }
+        };
+        taskS.setOnSucceeded(e -> dataSortie.setAll(taskS.getValue()));
+        taskS.setOnFailed(e -> dataSortie.clear());
+        new Thread(taskS).start();
     }
 
     private void showAlert(String titre, String msg) {

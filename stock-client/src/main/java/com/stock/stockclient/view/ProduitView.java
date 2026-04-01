@@ -168,17 +168,44 @@ public class ProduitView {
 
         btnSupprimer.setOnAction(e -> {
             Produit selected = table.getSelectionModel().getSelectedItem();
-            if (selected == null) { showAlert("Attention", "Sélectionne un produit."); return; }
+            if (selected == null) {
+                showAlert("Attention", "Sélectionne un produit.");
+                return;
+            }
 
-            Task<Void> task = new Task<>() {
-                @Override protected Void call() throws Exception {
-                    api.deleteProduit(selected.getNumProduit());
-                    return null;
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+            confirm.setTitle("Confirmation");
+            confirm.setHeaderText("Supprimer le produit ?");
+            confirm.setContentText("Voulez-vous vraiment supprimer : "
+                    + selected.getDesign() + " (" + selected.getNumProduit() + ") ?");
+
+            confirm.showAndWait().ifPresent(response -> {
+                if (response == ButtonType.OK) {
+                    Task<Void> task = new Task<>() {
+                        @Override protected Void call() throws Exception {
+                            api.deleteProduit(selected.getNumProduit());
+                            return null;
+                        }
+                    };
+                    task.setOnSucceeded(ev -> { clearForm(); chargerDonnees(); });
+                    task.setOnFailed(ev -> {
+                        // Clé étrangère ou autre erreur
+                        String erreur = task.getException().getMessage();
+                        if (erreur != null && (
+                                erreur.contains("foreign key") ||
+                                        erreur.contains("constraint") ||
+                                        erreur.contains("violates") ||
+                                        erreur.contains("500"))) {
+                            showAlert("Suppression impossible ❌",
+                                    "Ce produit est utilisé dans un Bon d'Entrée ou un Bon de Sortie.\n\n"
+                                            + "Supprimez d'abord les bons associés avant de supprimer ce produit.");
+                        } else {
+                            showAlert("Erreur", erreur);
+                        }
+                    });
+                    new Thread(task).start();
                 }
-            };
-            task.setOnSucceeded(ev -> { clearForm(); chargerDonnees(); });
-            task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
-            new Thread(task).start();
+            });
         });
 
         btnRafraichir.setOnAction(e -> { clearForm(); chargerDonnees(); });

@@ -48,7 +48,7 @@ public class MainApp extends Application {
         );
 
         Scene scene = new Scene(tabPane, 950, 600);
-        primaryStage.setTitle("Gestion de Stock — Client JavaFX");
+        primaryStage.setTitle("Gestion de Stock — Client Java Swing");
         primaryStage.setScene(scene);
         primaryStage.show();
     }
