@@ -59,6 +59,10 @@ public class ProduitService {
         bonEntreeRepo.deleteById(id);
     }
 
+    public BonEntree updateBonEntree(BonEntree be) {
+        return bonEntreeRepo.save(be);
+    }
+
     // ---- BON SORTIE ----
     public List<BonSortie> getAllBonSorties() {
         return bonSortieRepo.findAll();
@@ -75,6 +79,10 @@ public class ProduitService {
 
     public void deleteBonSortie(String id) {
         bonSortieRepo.deleteById(id);
+    }
+
+    public BonSortie updateBonSortie(BonSortie bs) {
+        return bonSortieRepo.save(bs);
     }
 
     // ---- MOUVEMENTS PRODUIT ----

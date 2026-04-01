@@ -88,4 +88,9 @@ public class EtatStockView {
         });
         new Thread(task).start();
     }
+
+    public void refresh() {
+        chargerDonnees();
+    }
+
 }

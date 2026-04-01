@@ -64,6 +64,12 @@ public class ProduitController {
         service.deleteBonEntree(id);
     }
 
+    @PutMapping("/bonentrees/{id}")
+    public BonEntree updateBonEntree(@PathVariable String id, @RequestBody BonEntree be) {
+        be.setNumBonEntree(id);
+        return service.saveBonEntree(be);
+    }
+
     // ---- BON SORTIE ----
     @GetMapping("/bonsorties")
     public List<BonSortie> getAllBonSorties() {
@@ -78,6 +84,12 @@ public class ProduitController {
     @DeleteMapping("/bonsorties/{id}")
     public void deleteBonSortie(@PathVariable String id) {
         service.deleteBonSortie(id);
+    }
+
+    @PutMapping("/bonsorties/{id}")
+    public BonSortie updateBonSortie(@PathVariable String id, @RequestBody BonSortie bs) {
+        bs.setNumBonSortie(id);
+        return service.saveBonSortie(bs);
     }
 
     // ---- MOUVEMENTS D'UN PRODUIT ----

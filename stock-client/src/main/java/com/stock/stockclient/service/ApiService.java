@@ -11,7 +11,7 @@ import java.net.URL;
 import java.util.List;
 
 public class ApiService {
-    private static final String BASE_URL = "http://localhost:8080/api";
+    private static final String BASE_URL = "http://localhost:8082/api";
     private static final Gson gson = new Gson();
 
     // ============ MÉTHODES HTTP GÉNÉRIQUES ============
@@ -73,6 +73,24 @@ public class ApiService {
         DELETE("/produits/" + id);
     }
 
+    public Produit getProduitById(String id) throws IOException {
+        String json = GET("/produits/" + id);
+        return gson.fromJson(json, Produit.class);
+    }
+
+    public void updateProduit(Produit p) throws IOException {
+        // PUT /api/produits/{id}
+        URL url = new URL(BASE_URL + "/produits/" + p.getNumProduit());
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("PUT");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(gson.toJson(p).getBytes());
+        }
+        conn.getResponseCode();
+    }
+
     // ============ BON ENTREE ============
 
     public List<BonEntree> getAllBonEntrees() throws IOException {
@@ -89,6 +107,18 @@ public class ApiService {
         DELETE("/bonentrees/" + id);
     }
 
+    public void updateBonEntree(BonEntree be) throws IOException {
+        URL url = new URL(BASE_URL + "/bonentrees/" + be.getNumBonEntree());
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("PUT");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(gson.toJson(be).getBytes());
+        }
+        conn.getResponseCode();
+    }
+
     // ============ BON SORTIE ============
 
     public List<BonSortie> getAllBonSorties() throws IOException {
@@ -103,6 +133,18 @@ public class ApiService {
 
     public void deleteBonSortie(String id) throws IOException {
         DELETE("/bonsorties/" + id);
+    }
+
+    public void updateBonSortie(BonSortie bs) throws IOException {
+        URL url = new URL(BASE_URL + "/bonsorties/" + bs.getNumBonSortie());
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("PUT");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(gson.toJson(bs).getBytes());
+        }
+        conn.getResponseCode();
     }
 
     // ============ MOUVEMENTS ============

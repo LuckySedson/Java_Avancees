@@ -61,13 +61,15 @@ public class BonSortieView {
         // ── Boutons ──
         Button btnAjouter    = new Button("➕ Ajouter");
         Button btnSupprimer  = new Button("🗑 Supprimer");
+        Button btnModifier = new Button("✏️ Modifier");
+        btnModifier.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
         Button btnRafraichir = new Button("🔄 Rafraîchir");
 
         btnAjouter.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
         btnSupprimer.setStyle("-fx-background-color: #f44336; -fx-text-fill: white;");
         btnRafraichir.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
 
-        HBox boutons = new HBox(10, btnAjouter, btnSupprimer, btnRafraichir);
+        HBox boutons = new HBox(10, btnAjouter, btnModifier, btnSupprimer, btnRafraichir);
         boutons.setPadding(new Insets(10));
 
         // ── Actions ──
@@ -109,11 +111,44 @@ public class BonSortieView {
             new Thread(task).start();
         });
 
+        btnModifier.setOnAction(e -> {
+            BonSortie selected = table.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                showAlert("Attention", "Sélectionne un bon à modifier.");
+                return;
+            }
+            try {
+                BonSortie bs = new BonSortie();
+                bs.setNumBonSortie(selected.getNumBonSortie()); // ID inchangé
+                bs.setNumProduit(tfNumProd.getText().trim());
+                bs.setQteSortie(Integer.parseInt(tfQte.getText().trim()));
+                bs.setDateSortie(tfDate.getText().trim());
+
+                Task<Void> task = new Task<>() {
+                    @Override protected Void call() throws Exception {
+                        api.updateBonSortie(bs); // PUT /api/bonsorties/{id}
+                        return null;
+                    }
+                };
+                task.setOnSucceeded(ev -> {
+                    showAlert("Succès", "Bon de sortie modifié !");
+                    clearForm();
+                    chargerDonnees();
+                });
+                task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
+                new Thread(task).start();
+
+            } catch (NumberFormatException ex) {
+                showAlert("Erreur", "La quantité doit être un nombre entier.");
+            }
+        });
+
         btnRafraichir.setOnAction(e -> chargerDonnees());
 
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
             if (sel != null) {
                 tfNumBon.setText(sel.getNumBonSortie());
+                tfNumBon.setDisable(true);
                 tfNumProd.setText(sel.getNumProduit());
                 tfQte.setText(String.valueOf(sel.getQteSortie()));
                 tfDate.setText(sel.getDateSortie());
@@ -142,8 +177,12 @@ public class BonSortieView {
     }
 
     private void clearForm() {
-        tfNumBon.clear(); tfNumProd.clear();
-        tfQte.clear(); tfDate.clear();
+        tfNumBon.clear();
+        tfNumBon.setDisable(false);
+        tfNumProd.clear();
+        tfQte.clear();
+        tfDate.clear();
+        table.getSelectionModel().clearSelection();
     }
 
     private void showAlert(String titre, String msg) {

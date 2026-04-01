@@ -13,6 +13,7 @@ import javafx.scene.layout.*;
 import java.util.List;
 
 public class ProduitView {
+
     private final ApiService api = new ApiService();
     private final TableView<Produit> table = new TableView<>();
     private final ObservableList<Produit> data = FXCollections.observableArrayList();
@@ -21,8 +22,10 @@ public class ProduitView {
     private final TextField tfDesign     = new TextField();
     private final TextField tfStock      = new TextField();
     private final TextField tfSearch     = new TextField();
+    private final TextField tfSearchCode = new TextField();
 
     public VBox getView() {
+        // ── Colonnes ──
         TableColumn<Produit, String>  colNum    = new TableColumn<>("N° Produit");
         TableColumn<Produit, String>  colDesign = new TableColumn<>("Désignation");
         TableColumn<Produit, Integer> colStock  = new TableColumn<>("Stock");
@@ -32,15 +35,46 @@ public class ProduitView {
         colStock.setCellValueFactory(new PropertyValueFactory<>("stock"));
 
         colNum.setPrefWidth(150);
-        colDesign.setPrefWidth(300);
-        colStock.setPrefWidth(150);
+        colDesign.setPrefWidth(280);
+        colStock.setPrefWidth(120);
 
         table.getColumns().addAll(colNum, colDesign, colStock);
         table.setItems(data);
 
+        // ── Recherche unifiée ──
+        TextField tfSearch = new TextField();
+        tfSearch.setPromptText("🔍 Rechercher par code ou désignation...");
+        tfSearch.setPrefWidth(400);
+
+        HBox searchBar = new HBox(10, new Label("Recherche :"), tfSearch);
+        searchBar.setPadding(new Insets(10));
+
+        tfSearch.textProperty().addListener((obs, oldVal, newVal) -> {
+            String keyword = newVal.trim();
+
+            Task<List<Produit>> task = new Task<>() {
+                @Override protected List<Produit> call() throws Exception {
+                    if (keyword.isEmpty()) {
+                        return api.getAllProduits();
+                    }
+                    try {
+                        Produit p = api.getProduitById(keyword);
+                        if (p != null) return List.of(p);
+                    } catch (Exception ignored) {}
+                    return api.searchProduits(keyword);
+                }
+            };
+            task.setOnSucceeded(e -> data.setAll(task.getValue()));
+            task.setOnFailed(e -> data.setAll(
+                    FXCollections.observableArrayList()
+            ));
+            new Thread(task).start();
+        });
+
+        // ── Formulaire ──
         tfNumProduit.setPromptText("N° Produit");
         tfDesign.setPromptText("Désignation");
-        tfStock.setPromptText("Stock initial");
+        tfStock.setPromptText("Stock");
 
         GridPane form = new GridPane();
         form.setHgap(10);
@@ -50,26 +84,33 @@ public class ProduitView {
         form.add(new Label("Désignation :"), 0, 1); form.add(tfDesign,     1, 1);
         form.add(new Label("Stock :"),       0, 2); form.add(tfStock,      1, 2);
 
+        // ── Boutons ──
         Button btnAjouter    = new Button("➕ Ajouter");
+        Button btnModifier   = new Button("✏️ Modifier");
         Button btnSupprimer  = new Button("🗑 Supprimer");
         Button btnRafraichir = new Button("🔄 Rafraîchir");
-        Button btnSearch     = new Button("Rechercher");
 
         btnAjouter.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
+        btnModifier.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
         btnSupprimer.setStyle("-fx-background-color: #f44336; -fx-text-fill: white;");
         btnRafraichir.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
 
-        tfSearch.setPromptText("🔍 Rechercher par désignation...");
-        tfSearch.setPrefWidth(300);
-
-        HBox searchBar = new HBox(10, tfSearch, btnSearch);
-        searchBar.setPadding(new Insets(10));
-
-        HBox boutons = new HBox(10, btnAjouter, btnSupprimer, btnRafraichir);
+        HBox boutons = new HBox(10, btnAjouter, btnModifier, btnSupprimer, btnRafraichir);
         boutons.setPadding(new Insets(10));
 
-        // ── Actions avec Task ──
+        // ── Remplir form au clic sur une ligne ──
+        table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
+            if (sel != null) {
+                tfNumProduit.setText(sel.getNumProduit());
+                tfNumProduit.setDisable(true);
+                tfDesign.setText(sel.getDesign());
+                tfStock.setText(String.valueOf(sel.getStock()));
+            }
+        });
+
+        // ── Actions ──
         btnAjouter.setOnAction(e -> {
+            tfNumProduit.setDisable(false);
             try {
                 Produit p = new Produit();
                 p.setNumProduit(tfNumProduit.getText().trim());
@@ -91,6 +132,37 @@ public class ProduitView {
             }
         });
 
+        btnModifier.setOnAction(e -> {
+            Produit selected = table.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                showAlert("Attention", "Sélectionne un produit à modifier.");
+                return;
+            }
+            try {
+                Produit p = new Produit();
+                p.setNumProduit(selected.getNumProduit()); // ID inchangé
+                p.setDesign(tfDesign.getText().trim());
+                p.setStock(Integer.parseInt(tfStock.getText().trim()));
+
+                Task<Void> task = new Task<>() {
+                    @Override protected Void call() throws Exception {
+                        api.updateProduit(p);
+                        return null;
+                    }
+                };
+                task.setOnSucceeded(ev -> {
+                    showAlert("Succès", "Produit modifié avec succès !");
+                    clearForm();
+                    chargerDonnees();
+                });
+                task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
+                new Thread(task).start();
+
+            } catch (NumberFormatException ex) {
+                showAlert("Erreur", "Le stock doit être un nombre entier.");
+            }
+        });
+
         btnSupprimer.setOnAction(e -> {
             Produit selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("Attention", "Sélectionne un produit."); return; }
@@ -101,34 +173,12 @@ public class ProduitView {
                     return null;
                 }
             };
-            task.setOnSucceeded(ev -> chargerDonnees());
+            task.setOnSucceeded(ev -> { clearForm(); chargerDonnees(); });
             task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
             new Thread(task).start();
         });
 
-        btnRafraichir.setOnAction(e -> chargerDonnees());
-
-        btnSearch.setOnAction(e -> {
-            String keyword = tfSearch.getText().trim();
-            Task<List<Produit>> task = new Task<>() {
-                @Override protected List<Produit> call() throws Exception {
-                    return keyword.isEmpty()
-                            ? api.getAllProduits()
-                            : api.searchProduits(keyword);
-                }
-            };
-            task.setOnSucceeded(ev -> data.setAll(task.getValue()));
-            task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
-            new Thread(task).start();
-        });
-
-        table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
-            if (sel != null) {
-                tfNumProduit.setText(sel.getNumProduit());
-                tfDesign.setText(sel.getDesign());
-                tfStock.setText(String.valueOf(sel.getStock()));
-            }
-        });
+        btnRafraichir.setOnAction(e -> { clearForm(); chargerDonnees(); });
 
         VBox layout = new VBox(10, searchBar, table, form, boutons);
         layout.setPadding(new Insets(15));
@@ -151,8 +201,16 @@ public class ProduitView {
         new Thread(task).start();
     }
 
+    public void refresh() {
+        chargerDonnees();
+    }
+
     private void clearForm() {
-        tfNumProduit.clear(); tfDesign.clear(); tfStock.clear();
+        tfNumProduit.clear();
+        tfNumProduit.setDisable(false);
+        tfDesign.clear();
+        tfStock.clear();
+        table.getSelectionModel().clearSelection();
     }
 
     private void showAlert(String titre, String msg) {

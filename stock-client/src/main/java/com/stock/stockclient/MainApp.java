@@ -1,11 +1,11 @@
 package com.stock.stockclient;
 
-import com.stock.stockclient.view.*;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.stage.Stage;
+import com.stock.stockclient.view.*;
 
 public class MainApp extends Application {
 
@@ -14,13 +14,18 @@ public class MainApp extends Application {
 
         TabPane tabPane = new TabPane();
 
-        Tab tabProduits    = new Tab("📦 Produits",      new ProduitView().getView());
-        Tab tabEntrees     = new Tab("📥 Bon Entrée",    new BonEntreeView().getView());
-        Tab tabSorties     = new Tab("📤 Bon Sortie",    new BonSortieView().getView());
-        Tab tabEtatStock   = new Tab("📊 État de Stock", new EtatStockView().getView());
-        Tab tabMouvements  = new Tab("🔄 Mouvements",    new MouvementsView().getView());
+        ProduitView    produitView    = new ProduitView();
+        BonEntreeView  bonEntreeView  = new BonEntreeView();
+        BonSortieView  bonSortieView  = new BonSortieView();
+        EtatStockView  etatStockView  = new EtatStockView();
+        MouvementsView mouvementsView = new MouvementsView();
 
-        // Empêcher la fermeture des onglets
+        Tab tabProduits   = new Tab("📦 Produits",      produitView.getView());
+        Tab tabEntrees    = new Tab("📥 Bon Entrée",    bonEntreeView.getView());
+        Tab tabSorties    = new Tab("📤 Bon Sortie",    bonSortieView.getView());
+        Tab tabEtatStock  = new Tab("📊 État de Stock", etatStockView.getView());
+        Tab tabMouvements = new Tab("🔄 Mouvements",    mouvementsView.getView());
+
         tabProduits.setClosable(false);
         tabEntrees.setClosable(false);
         tabSorties.setClosable(false);
@@ -30,6 +35,16 @@ public class MainApp extends Application {
         tabPane.getTabs().addAll(
                 tabProduits, tabEntrees, tabSorties,
                 tabEtatStock, tabMouvements
+        );
+
+        // ── Refresh auto onglet
+        tabPane.getSelectionModel().selectedIndexProperty().addListener(
+                (obs, oldIndex, newIndex) -> {
+                    switch (newIndex.intValue()) {
+                        case 0 -> produitView.refresh();
+                        case 3 -> etatStockView.refresh();
+                    }
+                }
         );
 
         Scene scene = new Scene(tabPane, 950, 600);
