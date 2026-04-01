@@ -39,7 +39,20 @@ public class ApiService {
         URL url = new URL(BASE_URL + endpoint);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("DELETE");
-        conn.getResponseCode();
+        int code = conn.getResponseCode();
+        if (code != 200 && code != 204) {
+            BufferedReader br = new BufferedReader(
+                    new InputStreamReader(conn.getErrorStream())
+            );
+
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = br.readLine()) != null) {
+                sb.append(line);
+            }
+
+            throw new IOException("Erreur HTTP " + code + " : " + sb.toString());
+        }
     }
 
     private String lireReponse(HttpURLConnection conn) throws IOException {

@@ -76,6 +76,13 @@ public class ProduitView {
         tfDesign.setPromptText("Désignation");
         tfStock.setPromptText("Stock");
 
+        //bloque lettre
+        tfStock.textProperty().addListener((obs, oldVal, newVal) -> {
+            if (!newVal.matches("\\d*")) {
+                tfStock.setText(newVal.replaceAll("[^\\d]", ""));
+            }
+        });
+
         GridPane form = new GridPane();
         form.setHgap(10);
         form.setVgap(8);
