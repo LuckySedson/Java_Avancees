@@ -74,6 +74,7 @@ public class BonEntreeView {
 
         // ── Actions ──
         btnAjouter.setOnAction(e -> {
+            if (!validerFormulaire()) return;
             try {
                 BonEntree be = new BonEntree();
                 be.setNumBonEntree(tfNumBon.getText().trim());
@@ -117,6 +118,7 @@ public class BonEntreeView {
                 showAlert("Attention", "Sélectionne un bon à modifier.");
                 return;
             }
+            if (!validerFormulaire()) return;
             try {
                 BonEntree be = new BonEntree();
                 be.setNumBonEntree(selected.getNumBonEntree()); // ID inchangé
@@ -174,6 +176,46 @@ public class BonEntreeView {
                     + task.getException().getMessage());
         });
         new Thread(task).start();
+    }
+
+    private boolean validerFormulaire() {
+        String numBon  = tfNumBon.getText().trim();
+        String numProd = tfNumProd.getText().trim();
+        String qte     = tfQte.getText().trim();
+        String date    = tfDate.getText().trim();
+
+        if (numBon.isEmpty() || numProd.isEmpty() || qte.isEmpty() || date.isEmpty()) {
+            showAlert("Validation", "❌ Tous les champs sont obligatoires.");
+            return false;
+        }
+
+        if (!numBon.matches("[A-Za-z0-9]+")) {
+            showAlert("Validation", "❌ Le N° Bon ne doit contenir que des lettres et chiffres.\nExemple : BE01");
+            return false;
+        }
+
+        if (!numProd.matches("[A-Za-z0-9]+")) {
+            showAlert("Validation", "❌ Le N° Produit ne doit contenir que des lettres et chiffres.\nExemple : P01");
+            return false;
+        }
+
+        try {
+            int q = Integer.parseInt(qte);
+            if (q <= 0) {
+                showAlert("Validation", "❌ La quantité doit être supérieure à 0.");
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            showAlert("Validation", "❌ La quantité doit être un nombre entier.");
+            return false;
+        }
+
+        if (!date.matches("\\d{2}/\\d{2}/(\\d{2}|\\d{4})")) {
+            showAlert("Validation", "❌ Format de date invalide.\nUtilise : jj/mm/aa  ex: 01/04/26");
+            return false;
+        }
+
+        return true;
     }
 
     private void clearForm() {

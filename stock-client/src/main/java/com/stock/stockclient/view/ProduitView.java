@@ -111,6 +111,7 @@ public class ProduitView {
         // ── Actions ──
         btnAjouter.setOnAction(e -> {
             tfNumProduit.setDisable(false);
+            if (!validerFormulaire()) return;
             try {
                 Produit p = new Produit();
                 p.setNumProduit(tfNumProduit.getText().trim());
@@ -138,9 +139,11 @@ public class ProduitView {
                 showAlert("Attention", "Sélectionne un produit à modifier.");
                 return;
             }
+            if (!validerFormulaire()) return;
+
             try {
                 Produit p = new Produit();
-                p.setNumProduit(selected.getNumProduit()); // ID inchangé
+                p.setNumProduit(selected.getNumProduit());
                 p.setDesign(tfDesign.getText().trim());
                 p.setStock(Integer.parseInt(tfStock.getText().trim()));
 
@@ -199,6 +202,40 @@ public class ProduitView {
                     + task.getException().getMessage());
         });
         new Thread(task).start();
+    }
+
+    private boolean validerFormulaire() {
+        String num    = tfNumProduit.getText().trim();
+        String design = tfDesign.getText().trim();
+        String stock  = tfStock.getText().trim();
+
+        if (num.isEmpty() || design.isEmpty() || stock.isEmpty()) {
+            showAlert("Validation", "❌ Tous les champs sont obligatoires.");
+            return false;
+        }
+
+        if (!num.matches("[A-Za-z0-9]+")) {
+            showAlert("Validation", "❌ Le N° Produit ne doit contenir que des lettres et chiffres.\nExemple : P01");
+            return false;
+        }
+
+        try {
+            int s = Integer.parseInt(stock);
+            if (s < 0) {
+                showAlert("Validation", "❌ Le stock ne peut pas être négatif.");
+                return false;
+            }
+        } catch (NumberFormatException e) {
+            showAlert("Validation", "❌ Le stock doit être un nombre entier.");
+            return false;
+        }
+
+        if (design.length() < 2) {
+            showAlert("Validation", "❌ La désignation doit contenir au moins 2 caractères.");
+            return false;
+        }
+
+        return true;
     }
 
     public void refresh() {
