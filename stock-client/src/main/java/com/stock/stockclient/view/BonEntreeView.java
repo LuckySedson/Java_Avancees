@@ -20,10 +20,15 @@ public class BonEntreeView {
     private final TableView<BonEntree> table = new TableView<>();
     private final ObservableList<BonEntree> data = FXCollections.observableArrayList();
 
-    private final TextField tfNumBon  = new TextField();
+    private final Label lblNumBon        = new Label("(généré automatiquement)");
     private final ComboBox<String> cbNumProd = new ComboBox<>();
-    private final TextField tfQte     = new TextField();
-    private final DatePicker dpDate   = new DatePicker();
+    private final TextField tfQte        = new TextField();
+    private final DatePicker dpDate      = new DatePicker();
+
+    private final Button btnAjouter    = new Button("➕ Ajouter");
+    private final Button btnModifier   = new Button("✏️ Modifier");
+    private final Button btnSupprimer  = new Button("🗑 Supprimer");
+    private final Button btnRafraichir = new Button("🔄 Rafraîchir");
 
     private static final DateTimeFormatter FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yy");
@@ -50,7 +55,7 @@ public class BonEntreeView {
         table.setItems(data);
 
         // ── Formulaire ──
-        tfNumBon.setPromptText("N° Bon Entrée  ex: BE01");
+        lblNumBon.setStyle("-fx-text-fill: grey; -fx-font-style: italic;");
         cbNumProd.setPromptText("Choisir un produit...");
         cbNumProd.setPrefWidth(200);
         cbNumProd.setEditable(false);
@@ -58,7 +63,6 @@ public class BonEntreeView {
         dpDate.setPromptText("Choisir une date");
         dpDate.setPrefWidth(200);
 
-        // Bloque lettre
         tfQte.textProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal.matches("\\d*")) {
                 tfQte.setText(newVal.replaceAll("[^\\d]", ""));
@@ -69,31 +73,74 @@ public class BonEntreeView {
         form.setHgap(10);
         form.setVgap(8);
         form.setPadding(new Insets(10));
-        form.add(new Label("N° Bon :"),     0, 0); form.add(tfNumBon,  1, 0);
-        form.add(new Label("N° Produit :"), 0, 1); form.add(cbNumProd, 1, 1);
-        form.add(new Label("Quantité :"),   0, 2); form.add(tfQte,     1, 2);
-        form.add(new Label("Date :"),       0, 3); form.add(dpDate,    1, 3);
+        form.add(new Label("N° Bon :"),     0, 0); form.add(lblNumBon,  1, 0);
+        form.add(new Label("N° Produit :"), 0, 1); form.add(cbNumProd,  1, 1);
+        form.add(new Label("Quantité :"),   0, 2); form.add(tfQte,      1, 2);
+        form.add(new Label("Date :"),       0, 3); form.add(dpDate,     1, 3);
 
-        // ── Boutons ──
-        Button btnAjouter    = new Button("➕ Ajouter");
-        Button btnModifier   = new Button("✏️ Modifier");
-        Button btnSupprimer  = new Button("🗑 Supprimer");
-        Button btnRafraichir = new Button("🔄 Rafraîchir");
-
+        // ── Style boutons ──
         btnAjouter.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
         btnModifier.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
         btnSupprimer.setStyle("-fx-background-color: #f44336; -fx-text-fill: white;");
         btnRafraichir.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
 
+        btnModifier.setDisable(true);
+        btnSupprimer.setDisable(true);
+
         HBox boutons = new HBox(10, btnAjouter, btnModifier, btnSupprimer, btnRafraichir);
         boutons.setPadding(new Insets(10));
 
-        // ── Action
+        // ── Animation sélection ──
+        table.setRowFactory(tv -> {
+            TableRow<BonEntree> row = new TableRow<>();
+            row.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
+                if (isSelected) {
+                    row.setStyle(
+                            "-fx-background-color: linear-gradient(to right, #42a5f5, #1976D2);" +
+                                    "-fx-text-fill: white;" +
+                                    "-fx-font-weight: bold;"
+                    );
+                } else {
+                    row.setStyle("");
+                }
+            });
+            return row;
+        });
+
+        table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
+            boolean selectionne = (sel != null);
+            btnAjouter.setDisable(selectionne);
+            btnModifier.setDisable(!selectionne);
+            btnSupprimer.setDisable(!selectionne);
+
+            if (sel != null) {
+                lblNumBon.setText(sel.getNumBonEntree());
+                lblNumBon.setStyle("-fx-text-fill: black; -fx-font-style: normal;");
+
+                // Sélectionne produit dans ComboBox
+                String numProd = sel.getNumProduit();
+                cbNumProd.getItems().stream()
+                        .filter(item -> item.startsWith(numProd))
+                        .findFirst()
+                        .ifPresent(cbNumProd::setValue);
+
+                tfQte.setText(String.valueOf(sel.getQteEntree()));
+
+                try {
+                    dpDate.setValue(LocalDate.parse(sel.getDateEntree(), FORMATTER));
+                } catch (Exception ex) {
+                    dpDate.setValue(null);
+                }
+            }
+        });
+
+        // ── Action ──
         btnAjouter.setOnAction(e -> {
             if (!validerFormulaire()) return;
 
+            String idGenere = api.genererIdBonEntree();
             BonEntree be = new BonEntree();
-            be.setNumBonEntree(tfNumBon.getText().trim());
+            be.setNumBonEntree(idGenere);
             be.setNumProduit(getNumProduitSelectionne());
             be.setQteEntree(Integer.parseInt(tfQte.getText().trim()));
             be.setDateEntree(dpDate.getValue().format(FORMATTER));
@@ -118,7 +165,7 @@ public class BonEntreeView {
             if (!validerFormulaire()) return;
 
             BonEntree be = new BonEntree();
-            be.setNumBonEntree(selected.getNumBonEntree());
+            be.setNumBonEntree(selected.getNumBonEntree()); // ID inchangé
             be.setNumProduit(getNumProduitSelectionne());
             be.setQteEntree(Integer.parseInt(tfQte.getText().trim()));
             be.setDateEntree(dpDate.getValue().format(FORMATTER));
@@ -168,26 +215,6 @@ public class BonEntreeView {
 
         btnRafraichir.setOnAction(e -> { clearForm(); chargerDonnees(); });
 
-        // ── Remplir formulaire au clic
-        table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
-            if (sel != null) {
-                tfNumBon.setText(sel.getNumBonEntree());
-                tfNumBon.setDisable(true);
-                String numProd = sel.getNumProduit();
-                cbNumProd.getItems().stream()
-                        .filter(item -> item.startsWith(numProd))
-                        .findFirst()
-                        .ifPresent(cbNumProd::setValue);
-                tfQte.setText(String.valueOf(sel.getQteEntree()));
-                // Parser la date vers DatePicker
-                try {
-                    dpDate.setValue(LocalDate.parse(sel.getDateEntree(), FORMATTER));
-                } catch (Exception ex) {
-                    dpDate.setValue(null);
-                }
-            }
-        });
-
         VBox layout = new VBox(10, table, form, boutons);
         layout.setPadding(new Insets(15));
         chargerProduits();
@@ -234,26 +261,16 @@ public class BonEntreeView {
     }
 
     private boolean validerFormulaire() {
-        String numBon  = tfNumBon.getText().trim();
-        String numProd = getNumProduitSelectionne();
-        String qte     = tfQte.getText().trim();
+        String qte = tfQte.getText().trim();
 
-        if (numBon.isEmpty() || numProd.isEmpty() || qte.isEmpty()) {
+        if (getNumProduitSelectionne().isEmpty() || qte.isEmpty()) {
             showAlert("Validation", "❌ Tous les champs sont obligatoires.");
             return false;
         }
-
-        if (!numBon.matches("[A-Za-z0-9]+")) {
-            showAlert("Validation",
-                    "❌ Le N° Bon ne doit contenir que des lettres et chiffres.\nExemple : BE01");
-            return false;
-        }
-
         if (cbNumProd.getValue() == null) {
             showAlert("Validation", "❌ Veuillez choisir un produit.");
             return false;
         }
-
         try {
             int q = Integer.parseInt(qte);
             if (q <= 0) {
@@ -264,22 +281,23 @@ public class BonEntreeView {
             showAlert("Validation", "❌ La quantité doit être un nombre entier.");
             return false;
         }
-
         if (dpDate.getValue() == null) {
             showAlert("Validation", "❌ Veuillez choisir une date.");
             return false;
         }
-
         return true;
     }
 
     private void clearForm() {
-        tfNumBon.clear();
-        tfNumBon.setDisable(false);
+        lblNumBon.setText("(généré automatiquement)");
+        lblNumBon.setStyle("-fx-text-fill: grey; -fx-font-style: italic;");
         cbNumProd.setValue(null);
         tfQte.clear();
         dpDate.setValue(null);
         table.getSelectionModel().clearSelection();
+        btnAjouter.setDisable(false);
+        btnModifier.setDisable(true);
+        btnSupprimer.setDisable(true);
     }
 
     private void showAlert(String titre, String msg) {

@@ -16,11 +16,13 @@ import javafx.scene.text.FontWeight;
 import java.util.List;
 
 public class EtatStockView {
+
     private final ApiService api = new ApiService();
     private final TableView<Produit> table = new TableView<>();
     private final ObservableList<Produit> data = FXCollections.observableArrayList();
 
     public VBox getView() {
+
         // ── Titre ──
         Label titre = new Label("ÉTAT DE STOCK");
         titre.setFont(Font.font("Arial", FontWeight.BOLD, 18));
@@ -36,14 +38,12 @@ public class EtatStockView {
         colDesign.setPrefWidth(400);
         colStock.setPrefWidth(200);
 
-        // Colorer en rouge si stock faible
+        // stock faible rouge < 20
         colStock.setCellFactory(col -> new TableCell<>() {
-            @Override
-            protected void updateItem(Integer item, boolean empty) {
+            @Override protected void updateItem(Integer item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
-                    setText(null);
-                    setStyle("");
+                    setText(null); setStyle("");
                 } else {
                     setText(String.valueOf(item));
                     setStyle(item < 20
@@ -56,7 +56,23 @@ public class EtatStockView {
         table.getColumns().addAll(colDesign, colStock);
         table.setItems(data);
 
-        // ── Bouton ──
+        // ── Animation à la sélection ──
+        table.setRowFactory(tv -> {
+            TableRow<Produit> row = new TableRow<>();
+            row.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
+                if (isSelected) {
+                    row.setStyle(
+                            "-fx-background-color: linear-gradient(to right, #42a5f5, #1976D2);" +
+                                    "-fx-text-fill: white;" +
+                                    "-fx-font-weight: bold;"
+                    );
+                } else {
+                    row.setStyle("");
+                }
+            });
+            return row;
+        });
+
         Button btnRafraichir = new Button("🔄 Rafraîchir l'état");
         btnRafraichir.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
         btnRafraichir.setOnAction(e -> chargerDonnees());
@@ -70,6 +86,8 @@ public class EtatStockView {
         chargerDonnees();
         return layout;
     }
+
+    public void refresh() { chargerDonnees(); }
 
     private void chargerDonnees() {
         Task<List<Produit>> task = new Task<>() {
@@ -88,9 +106,4 @@ public class EtatStockView {
         });
         new Thread(task).start();
     }
-
-    public void refresh() {
-        chargerDonnees();
-    }
-
 }

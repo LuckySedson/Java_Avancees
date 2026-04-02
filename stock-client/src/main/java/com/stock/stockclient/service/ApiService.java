@@ -173,4 +173,14 @@ public class ApiService {
         Type type = new TypeToken<List<BonSortie>>(){}.getType();
         return gson.fromJson(json, type);
     }
+
+    // Génère un ID unique basé sur le timestamp
+    public String genererIdBonEntree() {
+        return "BE" + System.currentTimeMillis() % 100000;
+    }
+
+    public String genererIdBonSortie() {
+        return "BS" + System.currentTimeMillis() % 100000;
+    }
+
 }

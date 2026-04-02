@@ -9,7 +9,6 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
-import javafx.scene.control.ButtonBar;
 
 import java.util.List;
 
@@ -19,15 +18,23 @@ public class ProduitView {
     private final TableView<Produit> table = new TableView<>();
     private final ObservableList<Produit> data = FXCollections.observableArrayList();
 
-    private Runnable onProduitChange;
-
     private final TextField tfNumProduit = new TextField();
     private final TextField tfDesign     = new TextField();
     private final TextField tfStock      = new TextField();
-    private final TextField tfSearch     = new TextField();
-    private final TextField tfSearchCode = new TextField();
+
+    private final Button btnAjouter    = new Button("➕ Ajouter");
+    private final Button btnModifier   = new Button("✏️ Modifier");
+    private final Button btnSupprimer  = new Button("🗑 Supprimer");
+    private final Button btnRafraichir = new Button("🔄 Rafraîchir");
+
+    private Runnable onProduitChange;
+
+    public void setOnProduitChange(Runnable callback) {
+        this.onProduitChange = callback;
+    }
 
     public VBox getView() {
+
         // ── Colonnes ──
         TableColumn<Produit, String>  colNum    = new TableColumn<>("N° Produit");
         TableColumn<Produit, String>  colDesign = new TableColumn<>("Désignation");
@@ -54,12 +61,9 @@ public class ProduitView {
 
         tfSearch.textProperty().addListener((obs, oldVal, newVal) -> {
             String keyword = newVal.trim();
-
             Task<List<Produit>> task = new Task<>() {
                 @Override protected List<Produit> call() throws Exception {
-                    if (keyword.isEmpty()) {
-                        return api.getAllProduits();
-                    }
+                    if (keyword.isEmpty()) return api.getAllProduits();
                     try {
                         Produit p = api.getProduitById(keyword);
                         if (p != null) return List.of(p);
@@ -69,17 +73,15 @@ public class ProduitView {
             };
             task.setOnSucceeded(e -> data.setAll(task.getValue()));
             task.setOnFailed(e -> data.setAll(
-                    FXCollections.observableArrayList()
-            ));
+                    FXCollections.observableArrayList()));
             new Thread(task).start();
         });
 
         // ── Formulaire ──
-        tfNumProduit.setPromptText("N° Produit");
+        tfNumProduit.setPromptText("N° Produit  ex: P01");
         tfDesign.setPromptText("Désignation");
         tfStock.setPromptText("Stock");
 
-        //bloque lettre
         tfStock.textProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal.matches("\\d*")) {
                 tfStock.setText(newVal.replaceAll("[^\\d]", ""));
@@ -94,22 +96,41 @@ public class ProduitView {
         form.add(new Label("Désignation :"), 0, 1); form.add(tfDesign,     1, 1);
         form.add(new Label("Stock :"),       0, 2); form.add(tfStock,      1, 2);
 
-        // ── Boutons ──
-        Button btnAjouter    = new Button("➕ Ajouter");
-        Button btnModifier   = new Button("✏️ Modifier");
-        Button btnSupprimer  = new Button("🗑 Supprimer");
-        Button btnRafraichir = new Button("🔄 Rafraîchir");
-
+        // ── Style boutons ──
         btnAjouter.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
         btnModifier.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
         btnSupprimer.setStyle("-fx-background-color: #f44336; -fx-text-fill: white;");
         btnRafraichir.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
 
+        btnModifier.setDisable(true);
+        btnSupprimer.setDisable(true);
+
         HBox boutons = new HBox(10, btnAjouter, btnModifier, btnSupprimer, btnRafraichir);
         boutons.setPadding(new Insets(10));
 
-        // ── Remplir form au clic sur une ligne ──
+        // ── Animation sélection ──
+        table.setRowFactory(tv -> {
+            TableRow<Produit> row = new TableRow<>();
+            row.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
+                if (isSelected) {
+                    row.setStyle(
+                            "-fx-background-color: linear-gradient(to right, #42a5f5, #1976D2);" +
+                                    "-fx-text-fill: white;" +
+                                    "-fx-font-weight: bold;"
+                    );
+                } else {
+                    row.setStyle("");
+                }
+            });
+            return row;
+        });
+
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
+            boolean selectionne = (sel != null);
+            btnAjouter.setDisable(selectionne);
+            btnModifier.setDisable(!selectionne);
+            btnSupprimer.setDisable(!selectionne);
+
             if (sel != null) {
                 tfNumProduit.setText(sel.getNumProduit());
                 tfNumProduit.setDisable(true);
@@ -118,7 +139,7 @@ public class ProduitView {
             }
         });
 
-        // ── Actions ──
+        // ── Action ──
         btnAjouter.setOnAction(e -> {
             tfNumProduit.setDisable(false);
             if (!validerFormulaire()) return;
@@ -127,13 +148,11 @@ public class ProduitView {
             String design     = tfDesign.getText().trim();
             int stock         = Integer.parseInt(tfStock.getText().trim());
 
+            // Vérifier si produit existe
             Task<Produit> taskVerif = new Task<>() {
                 @Override protected Produit call() throws Exception {
-                    try {
-                        return api.getProduitById(numProduit);
-                    } catch (Exception ex) {
-                        return null; // produit inexistant = OK
-                    }
+                    try { return api.getProduitById(numProduit); }
+                    catch (Exception ex) { return null; }
                 }
             };
 
@@ -141,23 +160,21 @@ public class ProduitView {
                 Produit existant = taskVerif.getValue();
 
                 if (existant != null) {
-                    // Produit déjà existant → proposer le choix
                     Alert choix = new Alert(Alert.AlertType.CONFIRMATION);
                     choix.setTitle("Produit existant");
                     choix.setHeaderText("⚠️ Le produit " + numProduit + " existe déjà !");
                     choix.setContentText(
                             "Désignation actuelle : " + existant.getDesign() +
-                                    "\nStock actuel : " + existant.getStock() +
+                                    "\nStock actuel : "        + existant.getStock() +
                                     "\n\nQue voulez-vous faire ?"
                     );
-
-                    ButtonType btnModifierDialog = new ButtonType("✏️ Modifier");
-                    ButtonType btnAnnuler = new ButtonType("❌ Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
-
-                    choix.getButtonTypes().setAll(btnModifierDialog, btnAnnuler);
+                    ButtonType btnModif   = new ButtonType("✏️ Modifier");
+                    ButtonType btnAnnuler = new ButtonType("❌ Annuler",
+                            ButtonBar.ButtonData.CANCEL_CLOSE);
+                    choix.getButtonTypes().setAll(btnModif, btnAnnuler);
 
                     choix.showAndWait().ifPresent(response -> {
-                        if (response == btnModifierDialog) {
+                        if (response == btnModif) {
                             Produit p = new Produit();
                             p.setNumProduit(numProduit);
                             p.setDesign(design);
@@ -180,7 +197,6 @@ public class ProduitView {
                             new Thread(taskUpdate).start();
                         }
                     });
-
                 } else {
                     Produit p = new Produit();
                     p.setNumProduit(numProduit);
@@ -194,18 +210,18 @@ public class ProduitView {
                         }
                     };
                     taskAdd.setOnSucceeded(evv -> {
-                        showAlert("Succès", "✅ Produit ajouté avec succès !"); // ← fix point 3
+                        showAlert("Succès", "✅ Produit ajouté avec succès !");
                         clearForm();
                         chargerDonnees();
-                        if (onProduitChange != null) onProduitChange.run(); // ← notifie les autres
+                        if (onProduitChange != null) onProduitChange.run();
                     });
                     taskAdd.setOnFailed(evv ->
                             showAlert("Erreur", taskAdd.getException().getMessage()));
                     new Thread(taskAdd).start();
                 }
             });
-
-            taskVerif.setOnFailed(ev -> showAlert("Erreur", "Impossible de vérifier le produit."));
+            taskVerif.setOnFailed(ev ->
+                    showAlert("Erreur", "Impossible de vérifier le produit."));
             new Thread(taskVerif).start();
         });
 
@@ -217,30 +233,25 @@ public class ProduitView {
             }
             if (!validerFormulaire()) return;
 
-            try {
-                Produit p = new Produit();
-                p.setNumProduit(selected.getNumProduit());
-                p.setDesign(tfDesign.getText().trim());
-                p.setStock(Integer.parseInt(tfStock.getText().trim()));
+            Produit p = new Produit();
+            p.setNumProduit(selected.getNumProduit());
+            p.setDesign(tfDesign.getText().trim());
+            p.setStock(Integer.parseInt(tfStock.getText().trim()));
 
-                Task<Void> task = new Task<>() {
-                    @Override protected Void call() throws Exception {
-                        api.updateProduit(p);
-                        return null;
-                    }
-                };
-                task.setOnSucceeded(ev -> {
-                    showAlert("Succès", "Produit modifié avec succès !");
-                    clearForm();
-                    chargerDonnees();
-                    if (onProduitChange != null) onProduitChange.run();
-                });
-                task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
-                new Thread(task).start();
-
-            } catch (NumberFormatException ex) {
-                showAlert("Erreur", "Le stock doit être un nombre entier.");
-            }
+            Task<Void> task = new Task<>() {
+                @Override protected Void call() throws Exception {
+                    api.updateProduit(p);
+                    return null;
+                }
+            };
+            task.setOnSucceeded(ev -> {
+                showAlert("Succès", "✅ Produit modifié avec succès !");
+                clearForm();
+                chargerDonnees();
+                if (onProduitChange != null) onProduitChange.run();
+            });
+            task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
+            new Thread(task).start();
         });
 
         btnSupprimer.setOnAction(e -> {
@@ -249,12 +260,12 @@ public class ProduitView {
                 showAlert("Attention", "Sélectionne un produit.");
                 return;
             }
-
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
             confirm.setTitle("Confirmation");
             confirm.setHeaderText("Supprimer le produit ?");
             confirm.setContentText("Voulez-vous vraiment supprimer : "
-                    + selected.getDesign() + " (" + selected.getNumProduit() + ") ?");
+                    + selected.getDesign()
+                    + " (" + selected.getNumProduit() + ") ?");
 
             confirm.showAndWait().ifPresent(response -> {
                 if (response == ButtonType.OK) {
@@ -278,8 +289,8 @@ public class ProduitView {
                                         erreur.contains("violates")    ||
                                         erreur.contains("500"))) {
                             showAlert("Suppression impossible ❌",
-                                    "Ce produit est utilisé dans un Bon d'Entrée ou un Bon de Sortie.\n\n"
-                                            + "Supprimez d'abord les bons associés avant de supprimer ce produit.");
+                                    "Ce produit est utilisé dans un Bon d'Entrée ou Bon de Sortie.\n\n"
+                                            + "Supprimez d'abord les bons associés.");
                         } else {
                             showAlert("Erreur", erreur);
                         }
@@ -297,6 +308,8 @@ public class ProduitView {
         return layout;
     }
 
+    public void refresh() { chargerDonnees(); }
+
     private void chargerDonnees() {
         Task<List<Produit>> task = new Task<>() {
             @Override protected List<Produit> call() throws Exception {
@@ -306,8 +319,9 @@ public class ProduitView {
         task.setOnSucceeded(e -> data.setAll(task.getValue()));
         task.setOnFailed(e -> {
             task.getException().printStackTrace();
-            showAlert("Erreur de connexion", "Vérifie que le serveur SpringBoot est lancé.\n"
-                    + task.getException().getMessage());
+            showAlert("Erreur de connexion",
+                    "Vérifie que le serveur SpringBoot est lancé.\n"
+                            + task.getException().getMessage());
         });
         new Thread(task).start();
     }
@@ -321,12 +335,16 @@ public class ProduitView {
             showAlert("Validation", "❌ Tous les champs sont obligatoires.");
             return false;
         }
-
         if (!num.matches("[A-Za-z0-9]+")) {
-            showAlert("Validation", "❌ Le N° Produit ne doit contenir que des lettres et chiffres.\nExemple : P01");
+            showAlert("Validation",
+                    "❌ Le N° Produit ne doit contenir que des lettres et chiffres.\nExemple : P01");
             return false;
         }
-
+        if (design.length() < 2) {
+            showAlert("Validation",
+                    "❌ La désignation doit contenir au moins 2 caractères.");
+            return false;
+        }
         try {
             int s = Integer.parseInt(stock);
             if (s < 0) {
@@ -337,21 +355,7 @@ public class ProduitView {
             showAlert("Validation", "❌ Le stock doit être un nombre entier.");
             return false;
         }
-
-        if (design.length() < 2) {
-            showAlert("Validation", "❌ La désignation doit contenir au moins 2 caractères.");
-            return false;
-        }
-
         return true;
-    }
-
-    public void setOnProduitChange(Runnable callback) {
-        this.onProduitChange = callback;
-    }
-
-    public void refresh() {
-        chargerDonnees();
     }
 
     private void clearForm() {
@@ -360,6 +364,9 @@ public class ProduitView {
         tfDesign.clear();
         tfStock.clear();
         table.getSelectionModel().clearSelection();
+        btnAjouter.setDisable(false);
+        btnModifier.setDisable(true);
+        btnSupprimer.setDisable(true);
     }
 
     private void showAlert(String titre, String msg) {
