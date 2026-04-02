@@ -37,12 +37,19 @@ public class MainApp extends Application {
                 tabEtatStock, tabMouvements
         );
 
+        // ── Refresh ComboBox
+        produitView.setOnProduitChange(() -> {
+            bonEntreeView.chargerProduits();
+            bonSortieView.chargerProduits();
+        });
+
         // ── Refresh auto onglet
         tabPane.getSelectionModel().selectedIndexProperty().addListener(
                 (obs, oldIndex, newIndex) -> {
                     switch (newIndex.intValue()) {
                         case 0 -> produitView.refresh();
                         case 3 -> etatStockView.refresh();
+                        case 4 -> mouvementsView.refresh();
                     }
                 }
         );

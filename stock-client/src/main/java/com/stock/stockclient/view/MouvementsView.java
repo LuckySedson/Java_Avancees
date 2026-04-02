@@ -2,146 +2,215 @@ package com.stock.stockclient.view;
 
 import com.stock.stockclient.model.BonEntree;
 import com.stock.stockclient.model.BonSortie;
+import com.stock.stockclient.model.Produit;
 import com.stock.stockclient.service.ApiService;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class MouvementsView {
 
     private final ApiService api = new ApiService();
 
-    private final TableView<BonEntree> tableEntree = new TableView<>();
-    private final TableView<BonSortie> tableSortie = new TableView<>();
-    private final ObservableList<BonEntree> dataEntree = FXCollections.observableArrayList();
-    private final ObservableList<BonSortie> dataSortie = FXCollections.observableArrayList();
+    private final TableView<LigneMouvement> table = new TableView<>();
+    private final ObservableList<LigneMouvement> data = FXCollections.observableArrayList();
 
-    private final TextField tfNumProduit = new TextField();
+    private final ComboBox<String> cbProduit = new ComboBox<>();
+    private final Label lblDesignation = new Label("Désignation : ");
+
+    public static class LigneMouvement {
+        private final String numBon;
+        private final String entree;
+        private final String sortie;
+        private final String date;
+
+        public LigneMouvement(String numBon, String entree, String sortie, String date) {
+            this.numBon  = numBon;
+            this.entree  = entree;
+            this.sortie  = sortie;
+            this.date    = date;
+        }
+
+        public String getNumBon()  { return numBon; }
+        public String getEntree()  { return entree; }
+        public String getSortie()  { return sortie; }
+        public String getDate()    { return date; }
+    }
 
     public VBox getView() {
 
-        // ── Barre search ──
-        tfNumProduit.setPromptText("Filtrer par N° Produit...");
-        tfNumProduit.setPrefWidth(250);
+        // ── Label désignation ──
+        lblDesignation.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        lblDesignation.setPadding(new Insets(5, 0, 5, 0));
+
+        // ── ComboBox produits ──
+        cbProduit.setPromptText("Tous les produits");
+        cbProduit.setPrefWidth(250);
+        cbProduit.setEditable(false);
+
         Button btnTous = new Button("🔄 Tous");
         btnTous.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
 
         HBox searchBar = new HBox(10,
-                new Label("Filtrer :"), tfNumProduit, btnTous);
+                new Label("Produit :"), cbProduit, btnTous);
         searchBar.setPadding(new Insets(10));
+        searchBar.setAlignment(Pos.CENTER_LEFT);
 
-        // ── Colonnes Entrées ──
-        TableColumn<BonEntree, String>  colNumE  = new TableColumn<>("N° Bon");
-        TableColumn<BonEntree, String>  colProdE = new TableColumn<>("N° Produit");
-        TableColumn<BonEntree, Integer> colQteE  = new TableColumn<>("Qté Entrée");
-        TableColumn<BonEntree, String>  colDateE = new TableColumn<>("Date");
+        // ── Titre tableau ──
+        Label titreTableau = new Label("ÉTAT DES MOUVEMENTS DE STOCK");
+        titreTableau.setFont(Font.font("Arial", FontWeight.BOLD, 13));
+        titreTableau.setUnderline(true);
 
-        colNumE.setCellValueFactory(new PropertyValueFactory<>("numBonEntree"));
-        colProdE.setCellValueFactory(new PropertyValueFactory<>("numProduit"));
-        colQteE.setCellValueFactory(new PropertyValueFactory<>("qteEntree"));
-        colDateE.setCellValueFactory(new PropertyValueFactory<>("dateEntree"));
+        // ── Colonnes tableau unifié ──
+        TableColumn<LigneMouvement, String> colBon    = new TableColumn<>("N° BON");
+        TableColumn<LigneMouvement, String> colEntree = new TableColumn<>("ENTRÉE");
+        TableColumn<LigneMouvement, String> colSortie = new TableColumn<>("SORTIE");
+        TableColumn<LigneMouvement, String> colDate   = new TableColumn<>("DATE");
 
-        colNumE.setPrefWidth(150);
-        colProdE.setPrefWidth(130);
-        colQteE.setPrefWidth(120);
-        colDateE.setPrefWidth(130);
+        colBon.setCellValueFactory(new PropertyValueFactory<>("numBon"));
+        colEntree.setCellValueFactory(new PropertyValueFactory<>("entree"));
+        colSortie.setCellValueFactory(new PropertyValueFactory<>("sortie"));
+        colDate.setCellValueFactory(new PropertyValueFactory<>("date"));
 
-        tableEntree.getColumns().addAll(colNumE, colProdE, colQteE, colDateE);
-        tableEntree.setItems(dataEntree);
-        tableEntree.setPrefHeight(200);
+        colBon.setPrefWidth(150);
+        colEntree.setPrefWidth(150);
+        colSortie.setPrefWidth(150);
+        colDate.setPrefWidth(150);
 
-        // ── Colonnes Sorties ──
-        TableColumn<BonSortie, String>  colNumS  = new TableColumn<>("N° Bon");
-        TableColumn<BonSortie, String>  colProdS = new TableColumn<>("N° Produit");
-        TableColumn<BonSortie, Integer> colQteS  = new TableColumn<>("Qté Sortie");
-        TableColumn<BonSortie, String>  colDateS = new TableColumn<>("Date");
+        table.getColumns().addAll(colBon, colEntree, colSortie, colDate);
+        table.setItems(data);
 
-        colNumS.setCellValueFactory(new PropertyValueFactory<>("numBonSortie"));
-        colProdS.setCellValueFactory(new PropertyValueFactory<>("numProduit"));
-        colQteS.setCellValueFactory(new PropertyValueFactory<>("qteSortie"));
-        colDateS.setCellValueFactory(new PropertyValueFactory<>("dateSortie"));
-
-        colNumS.setPrefWidth(150);
-        colProdS.setPrefWidth(130);
-        colQteS.setPrefWidth(120);
-        colDateS.setPrefWidth(130);
-
-        tableSortie.getColumns().addAll(colNumS, colProdS, colQteS, colDateS);
-        tableSortie.setItems(dataSortie);
-        tableSortie.setPrefHeight(200);
-
-        tfNumProduit.textProperty().addListener((obs, oldVal, newVal) -> {
-            String keyword = newVal.trim();
-            if (keyword.isEmpty()) {
+        // ── Actions ──
+        cbProduit.setOnAction(e -> {
+            String selected = cbProduit.getValue();
+            if (selected == null) {
+                lblDesignation.setText("Désignation : ");
                 chargerTous();
             } else {
-                filtrerParProduit(keyword);
+                String[] parts = selected.split(" — ");
+                String numProd = parts[0].trim();
+                String design  = parts.length > 1 ? parts[1].trim() : "";
+                lblDesignation.setText("Désignation : " + design);
+                filtrerParProduit(numProd);
             }
         });
 
         btnTous.setOnAction(e -> {
-            tfNumProduit.clear();
+            cbProduit.setValue(null);
+            lblDesignation.setText("Désignation : ");
             chargerTous();
         });
 
+        // ── Layout ──
         VBox layout = new VBox(10,
                 searchBar,
-                new Label("📥 Bons d'Entrée :"),
-                tableEntree,
-                new Label("📤 Bons de Sortie :"),
-                tableSortie
+                lblDesignation,
+                titreTableau,
+                table
         );
         layout.setPadding(new Insets(15));
 
+        // Charger les produits dans ComboBox + tous les mouvements
+        chargerProduits();
         chargerTous();
         return layout;
     }
 
-    // Charge all move
-    private void chargerTous() {
-        Task<List<BonEntree>> taskE = new Task<>() {
-            @Override protected List<BonEntree> call() throws Exception {
-                return api.getAllBonEntrees();
-            }
-        };
-        taskE.setOnSucceeded(e -> dataEntree.setAll(taskE.getValue()));
-        taskE.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les entrées."));
-        new Thread(taskE).start();
+    public void refresh() {
+        chargerProduits();
+        if (cbProduit.getValue() == null) {
+            chargerTous();
+        } else {
+            String[] parts = cbProduit.getValue().split(" — ");
+            filtrerParProduit(parts[0].trim());
+        }
+    }
 
-        Task<List<BonSortie>> taskS = new Task<>() {
-            @Override protected List<BonSortie> call() throws Exception {
-                return api.getAllBonSorties();
+    private void chargerProduits() {
+        Task<List<String>> task = new Task<>() {
+            @Override protected List<String> call() throws Exception {
+                return api.getAllProduits()
+                        .stream()
+                        .map(p -> p.getNumProduit() + " — " + p.getDesign())
+                        .toList();
             }
         };
-        taskS.setOnSucceeded(e -> dataSortie.setAll(taskS.getValue()));
-        taskS.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les sorties."));
-        new Thread(taskS).start();
+        task.setOnSucceeded(e -> {
+            String current = cbProduit.getValue();
+            cbProduit.setItems(FXCollections.observableArrayList(task.getValue()));
+            cbProduit.setValue(current); // garder la sélection actuelle
+        });
+        task.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les produits."));
+        new Thread(task).start();
+    }
+
+    private void chargerTous() {
+        Task<List<LigneMouvement>> task = new Task<>() {
+            @Override protected List<LigneMouvement> call() throws Exception {
+                List<LigneMouvement> lignes = new ArrayList<>();
+
+                for (BonEntree be : api.getAllBonEntrees()) {
+                    lignes.add(new LigneMouvement(
+                            be.getNumBonEntree(),
+                            String.valueOf(be.getQteEntree()),
+                            "",
+                            be.getDateEntree()
+                    ));
+                }
+                // Ajouter toutes les sorties
+                for (BonSortie bs : api.getAllBonSorties()) {
+                    lignes.add(new LigneMouvement(
+                            bs.getNumBonSortie(),
+                            "",
+                            String.valueOf(bs.getQteSortie()),
+                            bs.getDateSortie()
+                    ));
+                }
+                return lignes;
+            }
+        };
+        task.setOnSucceeded(e -> data.setAll(task.getValue()));
+        task.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les mouvements."));
+        new Thread(task).start();
     }
 
     private void filtrerParProduit(String numProduit) {
-        Task<List<BonEntree>> taskE = new Task<>() {
-            @Override protected List<BonEntree> call() throws Exception {
-                return api.getEntreesByProduit(numProduit);
-            }
-        };
-        taskE.setOnSucceeded(e -> dataEntree.setAll(taskE.getValue()));
-        taskE.setOnFailed(e -> dataEntree.clear());
-        new Thread(taskE).start();
+        Task<List<LigneMouvement>> task = new Task<>() {
+            @Override protected List<LigneMouvement> call() throws Exception {
+                List<LigneMouvement> lignes = new ArrayList<>();
 
-        Task<List<BonSortie>> taskS = new Task<>() {
-            @Override protected List<BonSortie> call() throws Exception {
-                return api.getSortiesByProduit(numProduit);
+                for (BonEntree be : api.getEntreesByProduit(numProduit)) {
+                    lignes.add(new LigneMouvement(
+                            be.getNumBonEntree(),
+                            String.valueOf(be.getQteEntree()),
+                            "",
+                            be.getDateEntree()
+                    ));
+                }
+                for (BonSortie bs : api.getSortiesByProduit(numProduit)) {
+                    lignes.add(new LigneMouvement(
+                            bs.getNumBonSortie(),
+                            "",
+                            String.valueOf(bs.getQteSortie()),
+                            bs.getDateSortie()
+                    ));
+                }
+                return lignes;
             }
         };
-        taskS.setOnSucceeded(e -> dataSortie.setAll(taskS.getValue()));
-        taskS.setOnFailed(e -> dataSortie.clear());
-        new Thread(taskS).start();
+        task.setOnSucceeded(e -> data.setAll(task.getValue()));
+        task.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les mouvements."));
+        new Thread(task).start();
     }
 
     private void showAlert(String titre, String msg) {

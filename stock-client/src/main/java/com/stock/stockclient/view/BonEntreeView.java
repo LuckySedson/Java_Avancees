@@ -21,7 +21,7 @@ public class BonEntreeView {
     private final ObservableList<BonEntree> data = FXCollections.observableArrayList();
 
     private final TextField tfNumBon  = new TextField();
-    private final TextField tfNumProd = new TextField();
+    private final ComboBox<String> cbNumProd = new ComboBox<>();
     private final TextField tfQte     = new TextField();
     private final DatePicker dpDate   = new DatePicker();
 
@@ -51,7 +51,9 @@ public class BonEntreeView {
 
         // ── Formulaire ──
         tfNumBon.setPromptText("N° Bon Entrée  ex: BE01");
-        tfNumProd.setPromptText("N° Produit  ex: P01");
+        cbNumProd.setPromptText("Choisir un produit...");
+        cbNumProd.setPrefWidth(200);
+        cbNumProd.setEditable(false);
         tfQte.setPromptText("Quantité");
         dpDate.setPromptText("Choisir une date");
         dpDate.setPrefWidth(200);
@@ -68,7 +70,7 @@ public class BonEntreeView {
         form.setVgap(8);
         form.setPadding(new Insets(10));
         form.add(new Label("N° Bon :"),     0, 0); form.add(tfNumBon,  1, 0);
-        form.add(new Label("N° Produit :"), 0, 1); form.add(tfNumProd, 1, 1);
+        form.add(new Label("N° Produit :"), 0, 1); form.add(cbNumProd, 1, 1);
         form.add(new Label("Quantité :"),   0, 2); form.add(tfQte,     1, 2);
         form.add(new Label("Date :"),       0, 3); form.add(dpDate,    1, 3);
 
@@ -92,7 +94,7 @@ public class BonEntreeView {
 
             BonEntree be = new BonEntree();
             be.setNumBonEntree(tfNumBon.getText().trim());
-            be.setNumProduit(tfNumProd.getText().trim());
+            be.setNumProduit(getNumProduitSelectionne());
             be.setQteEntree(Integer.parseInt(tfQte.getText().trim()));
             be.setDateEntree(dpDate.getValue().format(FORMATTER));
 
@@ -117,7 +119,7 @@ public class BonEntreeView {
 
             BonEntree be = new BonEntree();
             be.setNumBonEntree(selected.getNumBonEntree());
-            be.setNumProduit(tfNumProd.getText().trim());
+            be.setNumProduit(getNumProduitSelectionne());
             be.setQteEntree(Integer.parseInt(tfQte.getText().trim()));
             be.setDateEntree(dpDate.getValue().format(FORMATTER));
 
@@ -171,7 +173,11 @@ public class BonEntreeView {
             if (sel != null) {
                 tfNumBon.setText(sel.getNumBonEntree());
                 tfNumBon.setDisable(true);
-                tfNumProd.setText(sel.getNumProduit());
+                String numProd = sel.getNumProduit();
+                cbNumProd.getItems().stream()
+                        .filter(item -> item.startsWith(numProd))
+                        .findFirst()
+                        .ifPresent(cbNumProd::setValue);
                 tfQte.setText(String.valueOf(sel.getQteEntree()));
                 // Parser la date vers DatePicker
                 try {
@@ -184,6 +190,7 @@ public class BonEntreeView {
 
         VBox layout = new VBox(10, table, form, boutons);
         layout.setPadding(new Insets(15));
+        chargerProduits();
         chargerDonnees();
         return layout;
     }
@@ -204,9 +211,31 @@ public class BonEntreeView {
         new Thread(task).start();
     }
 
+    public void chargerProduits() {
+        Task<List<String>> task = new Task<>() {
+            @Override protected List<String> call() throws Exception {
+                return api.getAllProduits()
+                        .stream()
+                        .map(p -> p.getNumProduit() + " — " + p.getDesign())
+                        .toList();
+            }
+        };
+        task.setOnSucceeded(e -> cbNumProd.setItems(
+                FXCollections.observableArrayList(task.getValue())
+        ));
+        task.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les produits."));
+        new Thread(task).start();
+    }
+
+    private String getNumProduitSelectionne() {
+        String selected = cbNumProd.getValue();
+        if (selected == null) return "";
+        return selected.split(" — ")[0].trim();
+    }
+
     private boolean validerFormulaire() {
         String numBon  = tfNumBon.getText().trim();
-        String numProd = tfNumProd.getText().trim();
+        String numProd = getNumProduitSelectionne();
         String qte     = tfQte.getText().trim();
 
         if (numBon.isEmpty() || numProd.isEmpty() || qte.isEmpty()) {
@@ -220,9 +249,8 @@ public class BonEntreeView {
             return false;
         }
 
-        if (!numProd.matches("[A-Za-z0-9]+")) {
-            showAlert("Validation",
-                    "❌ Le N° Produit ne doit contenir que des lettres et chiffres.\nExemple : P01");
+        if (cbNumProd.getValue() == null) {
+            showAlert("Validation", "❌ Veuillez choisir un produit.");
             return false;
         }
 
@@ -248,7 +276,7 @@ public class BonEntreeView {
     private void clearForm() {
         tfNumBon.clear();
         tfNumBon.setDisable(false);
-        tfNumProd.clear();
+        cbNumProd.setValue(null);
         tfQte.clear();
         dpDate.setValue(null);
         table.getSelectionModel().clearSelection();

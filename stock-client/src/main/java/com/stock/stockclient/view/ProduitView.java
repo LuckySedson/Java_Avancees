@@ -9,6 +9,7 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
+import javafx.scene.control.ButtonBar;
 
 import java.util.List;
 
@@ -17,6 +18,8 @@ public class ProduitView {
     private final ApiService api = new ApiService();
     private final TableView<Produit> table = new TableView<>();
     private final ObservableList<Produit> data = FXCollections.observableArrayList();
+
+    private Runnable onProduitChange;
 
     private final TextField tfNumProduit = new TextField();
     private final TextField tfDesign     = new TextField();
@@ -119,25 +122,91 @@ public class ProduitView {
         btnAjouter.setOnAction(e -> {
             tfNumProduit.setDisable(false);
             if (!validerFormulaire()) return;
-            try {
-                Produit p = new Produit();
-                p.setNumProduit(tfNumProduit.getText().trim());
-                p.setDesign(tfDesign.getText().trim());
-                p.setStock(Integer.parseInt(tfStock.getText().trim()));
 
-                Task<Void> task = new Task<>() {
-                    @Override protected Void call() throws Exception {
-                        api.addProduit(p);
-                        return null;
+            String numProduit = tfNumProduit.getText().trim();
+            String design     = tfDesign.getText().trim();
+            int stock         = Integer.parseInt(tfStock.getText().trim());
+
+            Task<Produit> taskVerif = new Task<>() {
+                @Override protected Produit call() throws Exception {
+                    try {
+                        return api.getProduitById(numProduit);
+                    } catch (Exception ex) {
+                        return null; // produit inexistant = OK
                     }
-                };
-                task.setOnSucceeded(ev -> { clearForm(); chargerDonnees(); });
-                task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
-                new Thread(task).start();
+                }
+            };
 
-            } catch (NumberFormatException ex) {
-                showAlert("Erreur", "Le stock doit être un nombre entier.");
-            }
+            taskVerif.setOnSucceeded(ev -> {
+                Produit existant = taskVerif.getValue();
+
+                if (existant != null) {
+                    // Produit déjà existant → proposer le choix
+                    Alert choix = new Alert(Alert.AlertType.CONFIRMATION);
+                    choix.setTitle("Produit existant");
+                    choix.setHeaderText("⚠️ Le produit " + numProduit + " existe déjà !");
+                    choix.setContentText(
+                            "Désignation actuelle : " + existant.getDesign() +
+                                    "\nStock actuel : " + existant.getStock() +
+                                    "\n\nQue voulez-vous faire ?"
+                    );
+
+                    ButtonType btnModifierDialog = new ButtonType("✏️ Modifier");
+                    ButtonType btnAnnuler = new ButtonType("❌ Annuler", ButtonBar.ButtonData.CANCEL_CLOSE);
+
+                    choix.getButtonTypes().setAll(btnModifierDialog, btnAnnuler);
+
+                    choix.showAndWait().ifPresent(response -> {
+                        if (response == btnModifierDialog) {
+                            Produit p = new Produit();
+                            p.setNumProduit(numProduit);
+                            p.setDesign(design);
+                            p.setStock(stock);
+
+                            Task<Void> taskUpdate = new Task<>() {
+                                @Override protected Void call() throws Exception {
+                                    api.updateProduit(p);
+                                    return null;
+                                }
+                            };
+                            taskUpdate.setOnSucceeded(evv -> {
+                                showAlert("Succès", "✅ Produit modifié avec succès !");
+                                clearForm();
+                                chargerDonnees();
+                                if (onProduitChange != null) onProduitChange.run();
+                            });
+                            taskUpdate.setOnFailed(evv ->
+                                    showAlert("Erreur", taskUpdate.getException().getMessage()));
+                            new Thread(taskUpdate).start();
+                        }
+                    });
+
+                } else {
+                    Produit p = new Produit();
+                    p.setNumProduit(numProduit);
+                    p.setDesign(design);
+                    p.setStock(stock);
+
+                    Task<Void> taskAdd = new Task<>() {
+                        @Override protected Void call() throws Exception {
+                            api.addProduit(p);
+                            return null;
+                        }
+                    };
+                    taskAdd.setOnSucceeded(evv -> {
+                        showAlert("Succès", "✅ Produit ajouté avec succès !"); // ← fix point 3
+                        clearForm();
+                        chargerDonnees();
+                        if (onProduitChange != null) onProduitChange.run(); // ← notifie les autres
+                    });
+                    taskAdd.setOnFailed(evv ->
+                            showAlert("Erreur", taskAdd.getException().getMessage()));
+                    new Thread(taskAdd).start();
+                }
+            });
+
+            taskVerif.setOnFailed(ev -> showAlert("Erreur", "Impossible de vérifier le produit."));
+            new Thread(taskVerif).start();
         });
 
         btnModifier.setOnAction(e -> {
@@ -164,6 +233,7 @@ public class ProduitView {
                     showAlert("Succès", "Produit modifié avec succès !");
                     clearForm();
                     chargerDonnees();
+                    if (onProduitChange != null) onProduitChange.run();
                 });
                 task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
                 new Thread(task).start();
@@ -194,14 +264,18 @@ public class ProduitView {
                             return null;
                         }
                     };
-                    task.setOnSucceeded(ev -> { clearForm(); chargerDonnees(); });
+                    task.setOnSucceeded(ev -> {
+                        showAlert("Succès", "✅ Produit supprimé avec succès !");
+                        clearForm();
+                        chargerDonnees();
+                        if (onProduitChange != null) onProduitChange.run();
+                    });
                     task.setOnFailed(ev -> {
-                        // Clé étrangère ou autre erreur
                         String erreur = task.getException().getMessage();
                         if (erreur != null && (
                                 erreur.contains("foreign key") ||
-                                        erreur.contains("constraint") ||
-                                        erreur.contains("violates") ||
+                                        erreur.contains("constraint")  ||
+                                        erreur.contains("violates")    ||
                                         erreur.contains("500"))) {
                             showAlert("Suppression impossible ❌",
                                     "Ce produit est utilisé dans un Bon d'Entrée ou un Bon de Sortie.\n\n"
@@ -270,6 +344,10 @@ public class ProduitView {
         }
 
         return true;
+    }
+
+    public void setOnProduitChange(Runnable callback) {
+        this.onProduitChange = callback;
     }
 
     public void refresh() {

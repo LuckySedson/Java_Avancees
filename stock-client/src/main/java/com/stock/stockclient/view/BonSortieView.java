@@ -20,10 +20,10 @@ public class BonSortieView {
     private final TableView<BonSortie> table = new TableView<>();
     private final ObservableList<BonSortie> data = FXCollections.observableArrayList();
 
-    private final TextField tfNumBon  = new TextField();
-    private final TextField tfNumProd = new TextField();
-    private final TextField tfQte     = new TextField();
-    private final DatePicker dpDate   = new DatePicker();
+    private final TextField tfNumBon      = new TextField();
+    private final ComboBox<String> cbNumProd = new ComboBox<>();
+    private final TextField tfQte         = new TextField();
+    private final DatePicker dpDate       = new DatePicker();
 
     private static final DateTimeFormatter FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yy");
@@ -51,12 +51,14 @@ public class BonSortieView {
 
         // ── Formulaire ──
         tfNumBon.setPromptText("N° Bon Sortie  ex: BS01");
-        tfNumProd.setPromptText("N° Produit  ex: P01");
+        cbNumProd.setPromptText("Choisir un produit...");
+        cbNumProd.setPrefWidth(200);
+        cbNumProd.setEditable(false);
         tfQte.setPromptText("Quantité");
         dpDate.setPromptText("Choisir une date");
         dpDate.setPrefWidth(200);
 
-        // Bloque lettre
+        // Bloquer les lettres dans tfQte
         tfQte.textProperty().addListener((obs, oldVal, newVal) -> {
             if (!newVal.matches("\\d*")) {
                 tfQte.setText(newVal.replaceAll("[^\\d]", ""));
@@ -67,10 +69,10 @@ public class BonSortieView {
         form.setHgap(10);
         form.setVgap(8);
         form.setPadding(new Insets(10));
-        form.add(new Label("N° Bon :"),     0, 0); form.add(tfNumBon,  1, 0);
-        form.add(new Label("N° Produit :"), 0, 1); form.add(tfNumProd, 1, 1);
-        form.add(new Label("Quantité :"),   0, 2); form.add(tfQte,     1, 2);
-        form.add(new Label("Date :"),       0, 3); form.add(dpDate,    1, 3);
+        form.add(new Label("N° Bon :"),     0, 0); form.add(tfNumBon,   1, 0);
+        form.add(new Label("N° Produit :"), 0, 1); form.add(cbNumProd,  1, 1);
+        form.add(new Label("Quantité :"),   0, 2); form.add(tfQte,      1, 2);
+        form.add(new Label("Date :"),       0, 3); form.add(dpDate,     1, 3);
 
         // ── Boutons ──
         Button btnAjouter    = new Button("➕ Ajouter");
@@ -86,13 +88,13 @@ public class BonSortieView {
         HBox boutons = new HBox(10, btnAjouter, btnModifier, btnSupprimer, btnRafraichir);
         boutons.setPadding(new Insets(10));
 
-        // ── Action ──
+        // ── Action Ajouter ──
         btnAjouter.setOnAction(e -> {
             if (!validerFormulaire()) return;
 
             BonSortie bs = new BonSortie();
             bs.setNumBonSortie(tfNumBon.getText().trim());
-            bs.setNumProduit(tfNumProd.getText().trim());
+            bs.setNumProduit(getNumProduitSelectionne());
             bs.setQteSortie(Integer.parseInt(tfQte.getText().trim()));
             bs.setDateSortie(dpDate.getValue().format(FORMATTER));
 
@@ -107,6 +109,7 @@ public class BonSortieView {
             new Thread(task).start();
         });
 
+        // ── Action Modifier ──
         btnModifier.setOnAction(e -> {
             BonSortie selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) {
@@ -117,7 +120,7 @@ public class BonSortieView {
 
             BonSortie bs = new BonSortie();
             bs.setNumBonSortie(selected.getNumBonSortie());
-            bs.setNumProduit(tfNumProd.getText().trim());
+            bs.setNumProduit(getNumProduitSelectionne());
             bs.setQteSortie(Integer.parseInt(tfQte.getText().trim()));
             bs.setDateSortie(dpDate.getValue().format(FORMATTER));
 
@@ -136,6 +139,7 @@ public class BonSortieView {
             new Thread(task).start();
         });
 
+        // ── Action Supprimer ──
         btnSupprimer.setOnAction(e -> {
             BonSortie selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) { showAlert("Attention", "Sélectionne un bon."); return; }
@@ -144,9 +148,9 @@ public class BonSortieView {
             confirm.setTitle("Confirmation");
             confirm.setHeaderText("Supprimer ce bon de sortie ?");
             confirm.setContentText(
-                    "N° Bon : "    + selected.getNumBonSortie() +
-                            "\nProduit : " + selected.getNumProduit()   +
-                            "\nQuantité : "+ selected.getQteSortie()
+                    "N° Bon : "     + selected.getNumBonSortie() +
+                            "\nProduit : "  + selected.getNumProduit()   +
+                            "\nQuantité : " + selected.getQteSortie()
             );
 
             confirm.showAndWait().ifPresent(response -> {
@@ -164,16 +168,20 @@ public class BonSortieView {
             });
         });
 
+        // ── Action Rafraîchir ──
         btnRafraichir.setOnAction(e -> { clearForm(); chargerDonnees(); });
 
-        // ── Remplir formulaire au clic
+        // ── Remplir formulaire au clic sur une ligne ──
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
             if (sel != null) {
                 tfNumBon.setText(sel.getNumBonSortie());
                 tfNumBon.setDisable(true);
-                tfNumProd.setText(sel.getNumProduit());
+                String numProd = sel.getNumProduit();
+                cbNumProd.getItems().stream()
+                        .filter(item -> item.startsWith(numProd))
+                        .findFirst()
+                        .ifPresent(cbNumProd::setValue);
                 tfQte.setText(String.valueOf(sel.getQteSortie()));
-                // Parser la date vers DatePicker
                 try {
                     dpDate.setValue(LocalDate.parse(sel.getDateSortie(), FORMATTER));
                 } catch (Exception ex) {
@@ -184,6 +192,7 @@ public class BonSortieView {
 
         VBox layout = new VBox(10, table, form, boutons);
         layout.setPadding(new Insets(15));
+        chargerProduits();
         chargerDonnees();
         return layout;
     }
@@ -204,12 +213,34 @@ public class BonSortieView {
         new Thread(task).start();
     }
 
-    private boolean validerFormulaire() {
-        String numBon  = tfNumBon.getText().trim();
-        String numProd = tfNumProd.getText().trim();
-        String qte     = tfQte.getText().trim();
+    // ── public pour être appelé depuis MainApp ──
+    public void chargerProduits() {
+        Task<List<String>> task = new Task<>() {
+            @Override protected List<String> call() throws Exception {
+                return api.getAllProduits()
+                        .stream()
+                        .map(p -> p.getNumProduit() + " — " + p.getDesign())
+                        .toList();
+            }
+        };
+        task.setOnSucceeded(e -> cbNumProd.setItems(
+                FXCollections.observableArrayList(task.getValue())
+        ));
+        task.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les produits."));
+        new Thread(task).start();
+    }
 
-        if (numBon.isEmpty() || numProd.isEmpty() || qte.isEmpty()) {
+    private String getNumProduitSelectionne() {
+        String selected = cbNumProd.getValue();
+        if (selected == null) return "";
+        return selected.split(" — ")[0].trim();
+    }
+
+    private boolean validerFormulaire() {
+        String numBon = tfNumBon.getText().trim();
+        String qte    = tfQte.getText().trim();
+
+        if (numBon.isEmpty() || qte.isEmpty()) {
             showAlert("Validation", "❌ Tous les champs sont obligatoires.");
             return false;
         }
@@ -220,9 +251,8 @@ public class BonSortieView {
             return false;
         }
 
-        if (!numProd.matches("[A-Za-z0-9]+")) {
-            showAlert("Validation",
-                    "❌ Le N° Produit ne doit contenir que des lettres et chiffres.\nExemple : P01");
+        if (cbNumProd.getValue() == null) {
+            showAlert("Validation", "❌ Veuillez choisir un produit.");
             return false;
         }
 
@@ -248,7 +278,7 @@ public class BonSortieView {
     private void clearForm() {
         tfNumBon.clear();
         tfNumBon.setDisable(false);
-        tfNumProd.clear();
+        cbNumProd.setValue(null);
         tfQte.clear();
         dpDate.setValue(null);
         table.getSelectionModel().clearSelection();
