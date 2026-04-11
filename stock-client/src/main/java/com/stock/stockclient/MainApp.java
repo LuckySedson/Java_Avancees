@@ -6,6 +6,7 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.stage.Stage;
 import com.stock.stockclient.view.*;
+import javafx.scene.image.Image;
 
 public class MainApp extends Application {
 
@@ -57,6 +58,14 @@ public class MainApp extends Application {
         Scene scene = new Scene(tabPane, 950, 600);
         primaryStage.setTitle("Gestion de Stock — Client Java Swing");
         primaryStage.setScene(scene);
+        try {
+            Image icon = new Image(
+                    getClass().getResourceAsStream("images_stock.png")
+            );
+            primaryStage.getIcons().add(icon);
+        } catch (Exception e) {
+            System.out.println("Logo non trouvé : " + e.getMessage());
+        }
         primaryStage.show();
     }
 

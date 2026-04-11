@@ -3,6 +3,7 @@ package com.stock.stockclient.view;
 import com.stock.stockclient.model.BonEntree;
 import com.stock.stockclient.model.BonSortie;
 import com.stock.stockclient.service.ApiService;
+import com.stock.stockclient.util.BoutonStyle;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -63,7 +64,7 @@ public class MouvementsView {
         cbProduit.setEditable(false);
 
         Button btnTous = new Button("🔄 Tous");
-        btnTous.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
+        BoutonStyle.bleu(btnTous);
 
         HBox searchBar = new HBox(10, new Label("Produit :"), cbProduit, btnTous);
         searchBar.setPadding(new Insets(10));

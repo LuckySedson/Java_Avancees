@@ -175,12 +175,14 @@ public class ApiService {
     }
 
     // Génère un ID unique basé sur le timestamp
-    public String genererIdBonEntree() {
-        return "BE" + System.currentTimeMillis() % 100000;
+    public String genererIdBonEntree() throws IOException {
+        int count = getAllBonEntrees().size() + 1;
+        return String.format("BE%02d", count);
     }
 
-    public String genererIdBonSortie() {
-        return "BS" + System.currentTimeMillis() % 100000;
+    public String genererIdBonSortie() throws IOException {
+        int count = getAllBonSorties().size() + 1;
+        return String.format("BS%02d", count);
     }
 
 }

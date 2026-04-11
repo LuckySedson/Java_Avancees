@@ -2,6 +2,7 @@ package com.stock.stockclient.view;
 
 import com.stock.stockclient.model.BonEntree;
 import com.stock.stockclient.service.ApiService;
+import com.stock.stockclient.util.AlerteStyle;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -13,6 +14,7 @@ import javafx.scene.layout.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import com.stock.stockclient.util.BoutonStyle;
 
 public class BonEntreeView {
 
@@ -79,10 +81,10 @@ public class BonEntreeView {
         form.add(new Label("Date :"),       0, 3); form.add(dpDate,     1, 3);
 
         // ── Style boutons ──
-        btnAjouter.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
-        btnModifier.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
-        btnSupprimer.setStyle("-fx-background-color: #f44336; -fx-text-fill: white;");
-        btnRafraichir.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
+        BoutonStyle.vert(btnAjouter);
+        BoutonStyle.orange(btnModifier);
+        BoutonStyle.rouge(btnSupprimer);
+        BoutonStyle.bleu(btnRafraichir);
 
         btnModifier.setDisable(true);
         btnSupprimer.setDisable(true);
@@ -138,21 +140,20 @@ public class BonEntreeView {
         btnAjouter.setOnAction(e -> {
             if (!validerFormulaire()) return;
 
-            String idGenere = api.genererIdBonEntree();
-            BonEntree be = new BonEntree();
-            be.setNumBonEntree(idGenere);
-            be.setNumProduit(getNumProduitSelectionne());
-            be.setQteEntree(Integer.parseInt(tfQte.getText().trim()));
-            be.setDateEntree(dpDate.getValue().format(FORMATTER));
-
             Task<Void> task = new Task<>() {
                 @Override protected Void call() throws Exception {
+                    String idGenere = api.genererIdBonEntree();
+                    BonEntree be = new BonEntree();
+                    be.setNumBonEntree(idGenere);
+                    be.setNumProduit(getNumProduitSelectionne());
+                    be.setQteEntree(Integer.parseInt(tfQte.getText().trim()));
+                    be.setDateEntree(dpDate.getValue().format(FORMATTER));
                     api.addBonEntree(be);
                     return null;
                 }
             };
             task.setOnSucceeded(ev -> { clearForm(); chargerDonnees(); });
-            task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
+            task.setOnFailed(ev -> AlerteStyle.erreur("Erreur", task.getException().getMessage()));
             new Thread(task).start();
         });
 

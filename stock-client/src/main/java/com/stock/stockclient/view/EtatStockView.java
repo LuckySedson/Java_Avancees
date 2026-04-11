@@ -2,6 +2,7 @@ package com.stock.stockclient.view;
 
 import com.stock.stockclient.model.Produit;
 import com.stock.stockclient.service.ApiService;
+import com.stock.stockclient.util.BoutonStyle;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -74,7 +75,7 @@ public class EtatStockView {
         });
 
         Button btnRafraichir = new Button("🔄 Rafraîchir l'état");
-        btnRafraichir.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
+        BoutonStyle.bleu(btnRafraichir);
         btnRafraichir.setOnAction(e -> chargerDonnees());
 
         HBox hbox = new HBox(btnRafraichir);

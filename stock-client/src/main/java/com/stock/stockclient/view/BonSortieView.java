@@ -2,6 +2,7 @@ package com.stock.stockclient.view;
 
 import com.stock.stockclient.model.BonSortie;
 import com.stock.stockclient.service.ApiService;
+import com.stock.stockclient.util.AlerteStyle;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -13,6 +14,7 @@ import javafx.scene.layout.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import com.stock.stockclient.util.BoutonStyle;
 
 public class BonSortieView {
 
@@ -79,10 +81,10 @@ public class BonSortieView {
         form.add(new Label("Date :"),       0, 3); form.add(dpDate,     1, 3);
 
         // ── Style boutons ──
-        btnAjouter.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
-        btnModifier.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
-        btnSupprimer.setStyle("-fx-background-color: #f44336; -fx-text-fill: white;");
-        btnRafraichir.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
+        BoutonStyle.vert(btnAjouter);
+        BoutonStyle.orange(btnModifier);
+        BoutonStyle.rouge(btnSupprimer);
+        BoutonStyle.bleu(btnRafraichir);
 
         btnModifier.setDisable(true);
         btnSupprimer.setDisable(true);
@@ -137,10 +139,9 @@ public class BonSortieView {
         btnAjouter.setOnAction(e -> {
             if (!validerFormulaire()) return;
 
-            String numProd    = getNumProduitSelectionne();
-            int qteSortie     = Integer.parseInt(tfQte.getText().trim());
+            String numProd  = getNumProduitSelectionne();
+            int qteSortie   = Integer.parseInt(tfQte.getText().trim());
 
-            // Vérifier si stock disponible
             Task<Integer> taskStock = new Task<>() {
                 @Override protected Integer call() throws Exception {
                     return api.getProduitById(numProd).getStock();
@@ -150,35 +151,34 @@ public class BonSortieView {
             taskStock.setOnSucceeded(ev -> {
                 int stockActuel = taskStock.getValue();
                 if (qteSortie > stockActuel) {
-                    showAlert("Stock insuffisant ❌",
+                    AlerteStyle.erreur("Stock insuffisant ❌",
                             "Stock disponible : " + stockActuel +
                                     "\nQuantité demandée : " + qteSortie +
                                     "\n\nImpossible d'effectuer cette sortie.");
                     return;
                 }
 
-                String idGenere = api.genererIdBonSortie();
-                BonSortie bs = new BonSortie();
-                bs.setNumBonSortie(idGenere);
-                bs.setNumProduit(numProd);
-                bs.setQteSortie(qteSortie);
-                bs.setDateSortie(dpDate.getValue().format(FORMATTER));
-
+                // ── Générer l'ID et ajouter dans le même thread ──
                 Task<Void> taskAdd = new Task<>() {
                     @Override protected Void call() throws Exception {
+                        String idGenere = api.genererIdBonSortie();
+                        BonSortie bs = new BonSortie();
+                        bs.setNumBonSortie(idGenere);
+                        bs.setNumProduit(numProd);
+                        bs.setQteSortie(qteSortie);
+                        bs.setDateSortie(dpDate.getValue().format(FORMATTER));
                         api.addBonSortie(bs);
                         return null;
                     }
                 };
                 taskAdd.setOnSucceeded(evv -> { clearForm(); chargerDonnees(); });
                 taskAdd.setOnFailed(evv ->
-                        showAlert("Erreur", taskAdd.getException().getMessage()));
+                        AlerteStyle.erreur("Erreur", taskAdd.getException().getMessage()));
                 new Thread(taskAdd).start();
             });
 
             taskStock.setOnFailed(ev ->
-                    showAlert("Erreur", "Impossible de vérifier le stock."));
-
+                    AlerteStyle.erreur("Erreur", "Impossible de vérifier le stock."));
             new Thread(taskStock).start();
         });
 

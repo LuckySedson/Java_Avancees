@@ -9,6 +9,8 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
+import com.stock.stockclient.util.BoutonStyle;
+import com.stock.stockclient.util.AlerteStyle;
 
 import java.util.List;
 
@@ -97,10 +99,10 @@ public class ProduitView {
         form.add(new Label("Stock :"),       0, 2); form.add(tfStock,      1, 2);
 
         // ── Style boutons ──
-        btnAjouter.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
-        btnModifier.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
-        btnSupprimer.setStyle("-fx-background-color: #f44336; -fx-text-fill: white;");
-        btnRafraichir.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
+        BoutonStyle.vert(btnAjouter);
+        BoutonStyle.orange(btnModifier);
+        BoutonStyle.rouge(btnSupprimer);
+        BoutonStyle.bleu(btnRafraichir);
 
         btnModifier.setDisable(true);
         btnSupprimer.setDisable(true);
@@ -187,13 +189,13 @@ public class ProduitView {
                                 }
                             };
                             taskUpdate.setOnSucceeded(evv -> {
-                                showAlert("Succès", "✅ Produit modifié avec succès !");
+                                AlerteStyle.succes("Succès", "✅ Produit modifié avec succès !");
                                 clearForm();
                                 chargerDonnees();
                                 if (onProduitChange != null) onProduitChange.run();
                             });
                             taskUpdate.setOnFailed(evv ->
-                                    showAlert("Erreur", taskUpdate.getException().getMessage()));
+                                    AlerteStyle.erreur("Erreur", taskUpdate.getException().getMessage()));
                             new Thread(taskUpdate).start();
                         }
                     });
@@ -210,18 +212,18 @@ public class ProduitView {
                         }
                     };
                     taskAdd.setOnSucceeded(evv -> {
-                        showAlert("Succès", "✅ Produit ajouté avec succès !");
+                        AlerteStyle.succes("Succès", "✅ Produit ajouté avec succès !");
                         clearForm();
                         chargerDonnees();
                         if (onProduitChange != null) onProduitChange.run();
                     });
                     taskAdd.setOnFailed(evv ->
-                            showAlert("Erreur", taskAdd.getException().getMessage()));
+                            AlerteStyle.erreur("Erreur", taskAdd.getException().getMessage()));
                     new Thread(taskAdd).start();
                 }
             });
             taskVerif.setOnFailed(ev ->
-                    showAlert("Erreur", "Impossible de vérifier le produit."));
+                    AlerteStyle.erreur("Erreur", "Impossible de vérifier le produit."));
             new Thread(taskVerif).start();
         });
 
@@ -245,7 +247,7 @@ public class ProduitView {
                 }
             };
             task.setOnSucceeded(ev -> {
-                showAlert("Succès", "✅ Produit modifié avec succès !");
+                AlerteStyle.succes("Succès", "✅ Produit modifié avec succès !");
                 clearForm();
                 chargerDonnees();
                 if (onProduitChange != null) onProduitChange.run();
@@ -276,7 +278,7 @@ public class ProduitView {
                         }
                     };
                     task.setOnSucceeded(ev -> {
-                        showAlert("Succès", "✅ Produit supprimé avec succès !");
+                        AlerteStyle.succes("Succès", "✅ Produit supprimé avec succès !");
                         clearForm();
                         chargerDonnees();
                         if (onProduitChange != null) onProduitChange.run();
@@ -292,7 +294,7 @@ public class ProduitView {
                                     "Ce produit est utilisé dans un Bon d'Entrée ou Bon de Sortie.\n\n"
                                             + "Supprimez d'abord les bons associés.");
                         } else {
-                            showAlert("Erreur", erreur);
+                            AlerteStyle.erreur("Erreur", erreur);
                         }
                     });
                     new Thread(task).start();
@@ -370,9 +372,6 @@ public class ProduitView {
     }
 
     private void showAlert(String titre, String msg) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(titre);
-        alert.setContentText(msg);
-        alert.showAndWait();
+        AlerteStyle.info(titre, msg);
     }
 }
