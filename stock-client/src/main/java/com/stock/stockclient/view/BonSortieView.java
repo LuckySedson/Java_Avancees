@@ -3,6 +3,7 @@ package com.stock.stockclient.view;
 import com.stock.stockclient.model.BonSortie;
 import com.stock.stockclient.service.ApiService;
 import com.stock.stockclient.util.AlerteStyle;
+import com.stock.stockclient.util.BoutonStyle;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -14,7 +15,6 @@ import javafx.scene.layout.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import com.stock.stockclient.util.BoutonStyle;
 
 public class BonSortieView {
 
@@ -92,7 +92,7 @@ public class BonSortieView {
         HBox boutons = new HBox(10, btnAjouter, btnModifier, btnSupprimer, btnRafraichir);
         boutons.setPadding(new Insets(10));
 
-        // ── Animation à la sélection ──
+        // ── Animation sélection ──
         table.setRowFactory(tv -> {
             TableRow<BonSortie> row = new TableRow<>();
             row.selectedProperty().addListener((obs, wasSelected, isSelected) -> {
@@ -109,6 +109,7 @@ public class BonSortieView {
             return row;
         });
 
+        // ── Listener ──
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
             boolean selectionne = (sel != null);
             btnAjouter.setDisable(selectionne);
@@ -118,15 +119,12 @@ public class BonSortieView {
             if (sel != null) {
                 lblNumBon.setText(sel.getNumBonSortie());
                 lblNumBon.setStyle("-fx-text-fill: black; -fx-font-style: normal;");
-
                 String numProd = sel.getNumProduit();
                 cbNumProd.getItems().stream()
                         .filter(item -> item.startsWith(numProd))
                         .findFirst()
                         .ifPresent(cbNumProd::setValue);
-
                 tfQte.setText(String.valueOf(sel.getQteSortie()));
-
                 try {
                     dpDate.setValue(LocalDate.parse(sel.getDateSortie(), FORMATTER));
                 } catch (Exception ex) {
@@ -152,13 +150,12 @@ public class BonSortieView {
                 int stockActuel = taskStock.getValue();
                 if (qteSortie > stockActuel) {
                     AlerteStyle.erreur("Stock insuffisant ❌",
-                            "Stock disponible : " + stockActuel +
-                                    "\nQuantité demandée : " + qteSortie +
+                            "Stock disponible : "   + stockActuel  +
+                                    "\nQuantité demandée : " + qteSortie   +
                                     "\n\nImpossible d'effectuer cette sortie.");
                     return;
                 }
 
-                // ── Générer l'ID et ajouter dans le même thread ──
                 Task<Void> taskAdd = new Task<>() {
                     @Override protected Void call() throws Exception {
                         String idGenere = api.genererIdBonSortie();
@@ -171,7 +168,11 @@ public class BonSortieView {
                         return null;
                     }
                 };
-                taskAdd.setOnSucceeded(evv -> { clearForm(); chargerDonnees(); });
+                taskAdd.setOnSucceeded(evv -> {
+                    AlerteStyle.succes("Succès", "✅ Bon de sortie ajouté avec succès !");
+                    clearForm();
+                    chargerDonnees();
+                });
                 taskAdd.setOnFailed(evv ->
                         AlerteStyle.erreur("Erreur", taskAdd.getException().getMessage()));
                 new Thread(taskAdd).start();
@@ -185,7 +186,7 @@ public class BonSortieView {
         btnModifier.setOnAction(e -> {
             BonSortie selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) {
-                showAlert("Attention", "Sélectionne un bon à modifier.");
+                AlerteStyle.info("Attention", "Sélectionne un bon à modifier.");
                 return;
             }
             if (!validerFormulaire()) return;
@@ -203,17 +204,21 @@ public class BonSortieView {
                 }
             };
             task.setOnSucceeded(ev -> {
-                showAlert("Succès", "✅ Bon de sortie modifié !");
+                AlerteStyle.succes("Succès", "✅ Bon de sortie modifié avec succès !");
                 clearForm();
                 chargerDonnees();
             });
-            task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
+            task.setOnFailed(ev ->
+                    AlerteStyle.erreur("Erreur", task.getException().getMessage()));
             new Thread(task).start();
         });
 
         btnSupprimer.setOnAction(e -> {
             BonSortie selected = table.getSelectionModel().getSelectedItem();
-            if (selected == null) { showAlert("Attention", "Sélectionne un bon."); return; }
+            if (selected == null) {
+                AlerteStyle.info("Attention", "Sélectionne un bon.");
+                return;
+            }
 
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
             confirm.setTitle("Confirmation");
@@ -232,8 +237,13 @@ public class BonSortieView {
                             return null;
                         }
                     };
-                    task.setOnSucceeded(ev -> { clearForm(); chargerDonnees(); });
-                    task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
+                    task.setOnSucceeded(ev -> {
+                        AlerteStyle.succes("Succès", "✅ Bon de sortie supprimé avec succès !");
+                        clearForm();
+                        chargerDonnees();
+                    });
+                    task.setOnFailed(ev ->
+                            AlerteStyle.erreur("Erreur", task.getException().getMessage()));
                     new Thread(task).start();
                 }
             });
@@ -257,7 +267,7 @@ public class BonSortieView {
         task.setOnSucceeded(e -> data.setAll(task.getValue()));
         task.setOnFailed(e -> {
             task.getException().printStackTrace();
-            showAlert("Erreur de connexion",
+            AlerteStyle.erreur("Erreur de connexion",
                     "Vérifie que le serveur SpringBoot est lancé.\n"
                             + task.getException().getMessage());
         });
@@ -276,7 +286,8 @@ public class BonSortieView {
         task.setOnSucceeded(e -> cbNumProd.setItems(
                 FXCollections.observableArrayList(task.getValue())
         ));
-        task.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les produits."));
+        task.setOnFailed(e ->
+                AlerteStyle.erreur("Erreur", "Impossible de charger les produits."));
         new Thread(task).start();
     }
 
@@ -290,25 +301,25 @@ public class BonSortieView {
         String qte = tfQte.getText().trim();
 
         if (getNumProduitSelectionne().isEmpty() || qte.isEmpty()) {
-            showAlert("Validation", "❌ Tous les champs sont obligatoires.");
+            AlerteStyle.info("Validation", "❌ Tous les champs sont obligatoires.");
             return false;
         }
         if (cbNumProd.getValue() == null) {
-            showAlert("Validation", "❌ Veuillez choisir un produit.");
+            AlerteStyle.info("Validation", "❌ Veuillez choisir un produit.");
             return false;
         }
         try {
             int q = Integer.parseInt(qte);
             if (q <= 0) {
-                showAlert("Validation", "❌ La quantité doit être supérieure à 0.");
+                AlerteStyle.info("Validation", "❌ La quantité doit être supérieure à 0.");
                 return false;
             }
         } catch (NumberFormatException e) {
-            showAlert("Validation", "❌ La quantité doit être un nombre entier.");
+            AlerteStyle.info("Validation", "❌ La quantité doit être un nombre entier.");
             return false;
         }
         if (dpDate.getValue() == null) {
-            showAlert("Validation", "❌ Veuillez choisir une date.");
+            AlerteStyle.info("Validation", "❌ Veuillez choisir une date.");
             return false;
         }
         return true;
@@ -324,12 +335,5 @@ public class BonSortieView {
         btnAjouter.setDisable(false);
         btnModifier.setDisable(true);
         btnSupprimer.setDisable(true);
-    }
-
-    private void showAlert(String titre, String msg) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(titre);
-        alert.setContentText(msg);
-        alert.showAndWait();
     }
 }

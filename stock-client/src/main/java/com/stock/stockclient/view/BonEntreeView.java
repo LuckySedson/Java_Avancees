@@ -3,6 +3,7 @@ package com.stock.stockclient.view;
 import com.stock.stockclient.model.BonEntree;
 import com.stock.stockclient.service.ApiService;
 import com.stock.stockclient.util.AlerteStyle;
+import com.stock.stockclient.util.BoutonStyle;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -14,7 +15,6 @@ import javafx.scene.layout.*;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import com.stock.stockclient.util.BoutonStyle;
 
 public class BonEntreeView {
 
@@ -22,10 +22,10 @@ public class BonEntreeView {
     private final TableView<BonEntree> table = new TableView<>();
     private final ObservableList<BonEntree> data = FXCollections.observableArrayList();
 
-    private final Label lblNumBon        = new Label("(généré automatiquement)");
+    private final Label lblNumBon            = new Label("(généré automatiquement)");
     private final ComboBox<String> cbNumProd = new ComboBox<>();
-    private final TextField tfQte        = new TextField();
-    private final DatePicker dpDate      = new DatePicker();
+    private final TextField tfQte            = new TextField();
+    private final DatePicker dpDate          = new DatePicker();
 
     private final Button btnAjouter    = new Button("➕ Ajouter");
     private final Button btnModifier   = new Button("✏️ Modifier");
@@ -109,6 +109,7 @@ public class BonEntreeView {
             return row;
         });
 
+        // ── Listener ──
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, sel) -> {
             boolean selectionne = (sel != null);
             btnAjouter.setDisable(selectionne);
@@ -118,16 +119,12 @@ public class BonEntreeView {
             if (sel != null) {
                 lblNumBon.setText(sel.getNumBonEntree());
                 lblNumBon.setStyle("-fx-text-fill: black; -fx-font-style: normal;");
-
-                // Sélectionne produit dans ComboBox
                 String numProd = sel.getNumProduit();
                 cbNumProd.getItems().stream()
                         .filter(item -> item.startsWith(numProd))
                         .findFirst()
                         .ifPresent(cbNumProd::setValue);
-
                 tfQte.setText(String.valueOf(sel.getQteEntree()));
-
                 try {
                     dpDate.setValue(LocalDate.parse(sel.getDateEntree(), FORMATTER));
                 } catch (Exception ex) {
@@ -152,21 +149,26 @@ public class BonEntreeView {
                     return null;
                 }
             };
-            task.setOnSucceeded(ev -> { clearForm(); chargerDonnees(); });
-            task.setOnFailed(ev -> AlerteStyle.erreur("Erreur", task.getException().getMessage()));
+            task.setOnSucceeded(ev -> {
+                AlerteStyle.succes("Succès", "✅ Bon d'entrée ajouté avec succès !");
+                clearForm();
+                chargerDonnees();
+            });
+            task.setOnFailed(ev ->
+                    AlerteStyle.erreur("Erreur", task.getException().getMessage()));
             new Thread(task).start();
         });
 
         btnModifier.setOnAction(e -> {
             BonEntree selected = table.getSelectionModel().getSelectedItem();
             if (selected == null) {
-                showAlert("Attention", "Sélectionne un bon à modifier.");
+                AlerteStyle.info("Attention", "Sélectionne un bon à modifier.");
                 return;
             }
             if (!validerFormulaire()) return;
 
             BonEntree be = new BonEntree();
-            be.setNumBonEntree(selected.getNumBonEntree()); // ID inchangé
+            be.setNumBonEntree(selected.getNumBonEntree());
             be.setNumProduit(getNumProduitSelectionne());
             be.setQteEntree(Integer.parseInt(tfQte.getText().trim()));
             be.setDateEntree(dpDate.getValue().format(FORMATTER));
@@ -178,17 +180,21 @@ public class BonEntreeView {
                 }
             };
             task.setOnSucceeded(ev -> {
-                showAlert("Succès", "✅ Bon d'entrée modifié !");
+                AlerteStyle.succes("Succès", "✅ Bon d'entrée modifié avec succès !");
                 clearForm();
                 chargerDonnees();
             });
-            task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
+            task.setOnFailed(ev ->
+                    AlerteStyle.erreur("Erreur", task.getException().getMessage()));
             new Thread(task).start();
         });
 
         btnSupprimer.setOnAction(e -> {
             BonEntree selected = table.getSelectionModel().getSelectedItem();
-            if (selected == null) { showAlert("Attention", "Sélectionne un bon."); return; }
+            if (selected == null) {
+                AlerteStyle.info("Attention", "Sélectionne un bon.");
+                return;
+            }
 
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
             confirm.setTitle("Confirmation");
@@ -207,8 +213,13 @@ public class BonEntreeView {
                             return null;
                         }
                     };
-                    task.setOnSucceeded(ev -> { clearForm(); chargerDonnees(); });
-                    task.setOnFailed(ev -> showAlert("Erreur", task.getException().getMessage()));
+                    task.setOnSucceeded(ev -> {
+                        AlerteStyle.succes("Succès", "✅ Bon d'entrée supprimé avec succès !");
+                        clearForm();
+                        chargerDonnees();
+                    });
+                    task.setOnFailed(ev ->
+                            AlerteStyle.erreur("Erreur", task.getException().getMessage()));
                     new Thread(task).start();
                 }
             });
@@ -232,7 +243,7 @@ public class BonEntreeView {
         task.setOnSucceeded(e -> data.setAll(task.getValue()));
         task.setOnFailed(e -> {
             task.getException().printStackTrace();
-            showAlert("Erreur de connexion",
+            AlerteStyle.erreur("Erreur de connexion",
                     "Vérifie que le serveur SpringBoot est lancé.\n"
                             + task.getException().getMessage());
         });
@@ -251,7 +262,8 @@ public class BonEntreeView {
         task.setOnSucceeded(e -> cbNumProd.setItems(
                 FXCollections.observableArrayList(task.getValue())
         ));
-        task.setOnFailed(e -> showAlert("Erreur", "Impossible de charger les produits."));
+        task.setOnFailed(e ->
+                AlerteStyle.erreur("Erreur", "Impossible de charger les produits."));
         new Thread(task).start();
     }
 
@@ -265,25 +277,25 @@ public class BonEntreeView {
         String qte = tfQte.getText().trim();
 
         if (getNumProduitSelectionne().isEmpty() || qte.isEmpty()) {
-            showAlert("Validation", "❌ Tous les champs sont obligatoires.");
+            AlerteStyle.info("Validation", "❌ Tous les champs sont obligatoires.");
             return false;
         }
         if (cbNumProd.getValue() == null) {
-            showAlert("Validation", "❌ Veuillez choisir un produit.");
+            AlerteStyle.info("Validation", "❌ Veuillez choisir un produit.");
             return false;
         }
         try {
             int q = Integer.parseInt(qte);
             if (q <= 0) {
-                showAlert("Validation", "❌ La quantité doit être supérieure à 0.");
+                AlerteStyle.info("Validation", "❌ La quantité doit être supérieure à 0.");
                 return false;
             }
         } catch (NumberFormatException e) {
-            showAlert("Validation", "❌ La quantité doit être un nombre entier.");
+            AlerteStyle.info("Validation", "❌ La quantité doit être un nombre entier.");
             return false;
         }
         if (dpDate.getValue() == null) {
-            showAlert("Validation", "❌ Veuillez choisir une date.");
+            AlerteStyle.info("Validation", "❌ Veuillez choisir une date.");
             return false;
         }
         return true;
@@ -299,12 +311,5 @@ public class BonEntreeView {
         btnAjouter.setDisable(false);
         btnModifier.setDisable(true);
         btnSupprimer.setDisable(true);
-    }
-
-    private void showAlert(String titre, String msg) {
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(titre);
-        alert.setContentText(msg);
-        alert.showAndWait();
     }
 }
